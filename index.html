@@ -1,0 +1,2186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI File Organizer</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+:root{
+  --bg:#0a0c10;--bg2:#111520;--bg3:#161c2a;--panel:#1a2035;--panel2:#1f2840;
+  --border:#2a3550;--border2:#3a4f7a;--accent:#3b82f6;--accent2:#60a5fa;--accent3:#1d4ed8;
+  --green:#10b981;--green2:#34d399;--yellow:#f59e0b;--red:#ef4444;--purple:#8b5cf6;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+/* TITLEBAR */
+.titlebar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;height:48px;gap:12px;flex-shrink:0;}
+.logo{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+.titlebar h1{font-family:var(--sans);font-size:15px;font-weight:700;letter-spacing:.05em;}
+.tb-sub{font-size:11px;color:var(--text3);}
+.spacer{flex:1;}
+.sp{padding:3px 10px;border-radius:20px;font-size:11px;display:flex;align-items:center;gap:5px;}
+.sp.idle{background:rgba(100,116,139,.15);color:var(--text3);border:1px solid var(--border);}
+.sp.running{background:rgba(59,130,246,.15);color:var(--accent2);border:1px solid rgba(59,130,246,.3);}
+.sp.done{background:rgba(16,185,129,.15);color:var(--green2);border:1px solid rgba(16,185,129,.3);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.dot.pulse{animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* LAYOUT */
+.app{display:flex;flex:1;overflow:hidden;}
+/* SIDEBAR */
+.sidebar{width:72px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:12px 0 12px;gap:2px;flex-shrink:0;}
+.nb{width:64px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:8px;background:none;border:none;color:var(--text3);cursor:pointer;transition:all .15s;position:relative;}
+.nb:hover{background:var(--panel);color:var(--text2);}
+.nb.active{background:var(--accent3);color:#fff;}
+.nb-icon{font-size:18px;line-height:1;}
+.nb-label{font-size:9px;font-family:var(--mono);font-weight:500;letter-spacing:.05em;text-transform:uppercase;margin-top:2px;line-height:1;}
+.nb-sep{width:40px;height:1px;background:var(--border);margin:4px 0;}
+/* PANELS */
+.panel{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.panel.active{display:flex;}
+.ph{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;flex-shrink:0;background:var(--bg2);}
+.ph h2{font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);}
+.pha{margin-left:auto;display:flex;gap:6px;align-items:center;}
+/* SPLIT */
+.split{display:flex;flex:1;overflow:hidden;}
+.sl{flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sr{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+/* FORMS */
+.fg{padding:10px 16px;border-bottom:1px solid var(--border);}
+.fg label{display:block;font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:5px;}
+input[type=text],input[type=number],input[type=password],select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:5px;font-family:var(--mono);font-size:12px;outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+select option{background:var(--bg3);}
+textarea{resize:vertical;}
+input[type=range]{accent-color:var(--accent);width:100%;}
+input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer;flex-shrink:0;}
+/* BUTTONS */
+.btn{padding:7px 14px;border-radius:5px;border:none;font-family:var(--mono);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500;white-space:nowrap;}
+.btn-p{background:var(--accent);color:#fff;}.btn-p:hover{background:var(--accent2);}
+.btn-s{background:var(--green);color:#fff;}.btn-s:hover{background:var(--green2);color:#000;}
+.btn-d{background:var(--red);color:#fff;}.btn-d:hover{opacity:.85;}
+.btn-g{background:var(--panel);color:var(--text2);border:1px solid var(--border);}.btn-g:hover{border-color:var(--border2);color:var(--text);}
+.btn-w{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3);}
+.btn-sm{padding:4px 10px;font-size:11px;}
+.btn-xs{padding:2px 7px;font-size:10px;}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-shut{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.btn-shut:hover{background:rgba(239,68,68,.22);}
+/* FILE TREE */
+.file-tree{flex:1;overflow-y:auto;padding:8px 0;}
+.ti{display:flex;align-items:center;gap:6px;padding:5px 12px;cursor:pointer;transition:background .1s;user-select:none;}
+.ti:hover{background:var(--panel);}
+.ti.sel{background:rgba(59,130,246,.15);border-left:2px solid var(--accent);}
+.ti.dir{color:var(--accent2);}
+.ti.file{color:var(--text2);}
+.ti .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+.badge{font-size:10px;padding:1px 6px;border-radius:10px;background:rgba(59,130,246,.2);color:var(--accent2);flex-shrink:0;}
+.ti-indent{padding-left:20px;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:10px;}
+/* DATA TABLE */
+.dt{width:100%;border-collapse:collapse;}
+.dt th{text-align:left;padding:8px 12px;font-size:10px;font-weight:500;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);}
+.dt td{padding:7px 12px;border-bottom:1px solid rgba(42,53,80,.5);font-size:12px;color:var(--text2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dt tr:hover td{background:var(--panel);}
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;padding:16px;}
+.sc{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;}
+.sc .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.sc .val{font-family:var(--sans);font-size:24px;font-weight:800;}
+.sc .sub{font-size:11px;color:var(--text3);margin-top:2px;}
+/* PROGRESS */
+.pbar{height:4px;background:var(--border);border-radius:4px;overflow:hidden;}
+.pfill{height:100%;background:linear-gradient(90deg,var(--accent),var(--purple));border-radius:4px;transition:width .3s ease;}
+/* LOG */
+.log-area{flex:1;overflow-y:auto;padding:12px 16px;font-family:var(--mono);font-size:11px;background:var(--bg);line-height:1.75;}
+.ll{display:flex;gap:8px;align-items:flex-start;}
+.ll.hidden{display:none;}
+.lt{color:var(--text3);flex-shrink:0;min-width:75px;}
+.lm{flex:1;}
+.lm.info{color:var(--text2);}.lm.success{color:var(--green2);}.lm.warn{color:var(--yellow);}.lm.error{color:var(--red);}.lm.ai{color:var(--purple);}
+.cs{flex:1;overflow-y:auto;padding:16px;}
+.stitle{font-family:var(--sans);font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.15em;padding:10px 16px 6px;border-bottom:1px solid var(--border);}
+/* TOGGLE */
+.tog{position:relative;width:36px;height:20px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;}
+.tsl{position:absolute;inset:0;background:var(--border2);border-radius:20px;cursor:pointer;transition:.2s;}
+.tsl::before{content:'';position:absolute;width:14px;height:14px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.tog input:checked+.tsl{background:var(--accent);}
+.tog input:checked+.tsl::before{transform:translateX(16px);}
+.row{display:flex;align-items:center;gap:8px;}
+.row.sb{justify-content:space-between;}
+.f1{flex:1;}
+/* MODAL */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);}
+.mo.open{display:flex;}
+.md{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;width:560px;max-width:95vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+.md-wide{width:720px;}
+.md-sm{width:420px;}
+.mh{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.mh h3{font-family:var(--sans);font-size:14px;font-weight:700;flex:1;}
+.mb{padding:16px;overflow-y:auto;flex:1;}
+.mf{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+/* CHARTS */
+.bch{display:flex;flex-direction:column;gap:6px;}
+.brow{display:flex;align-items:center;gap:10px;}
+.blbl{width:110px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.btrack{flex:1;height:16px;background:var(--panel);border-radius:3px;overflow:hidden;}
+.bfill{height:100%;border-radius:3px;transition:width .5s;display:flex;align-items:center;padding-left:6px;font-size:10px;color:rgba(255,255,255,.8);}
+.bcnt{width:36px;font-size:11px;color:var(--text3);text-align:right;}
+/* EMPTY STATE */
+.es{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;gap:12px;color:var(--text3);text-align:center;}
+.es .ei{font-size:40px;opacity:.4;}
+.es p{font-size:12px;max-width:280px;line-height:1.6;}
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;overflow-x:auto;}
+.tab{padding:10px 14px;font-size:12px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.tab:hover{color:var(--text2);}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+.tc{background:var(--panel2);color:var(--text3);padding:1px 6px;border-radius:10px;font-size:10px;}
+.tp{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.tp.active{display:flex;}
+/* MISC */
+.breadcrumb{display:flex;align-items:center;gap:4px;padding:8px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);overflow:hidden;flex-shrink:0;}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;border:1px solid;}
+.tag .tr{cursor:pointer;opacity:.6;font-size:13px;line-height:1;}.tag .tr:hover{opacity:1;}
+.tc-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;min-height:28px;}
+.ci{display:flex;gap:6px;margin-top:6px;}.ci input{flex:1;}
+.toast-c{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:2000;}
+.toast{background:var(--panel2);border:1px solid var(--border2);border-radius:6px;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:12px;animation:sli .2s ease;max-width:320px;}
+@keyframes sli{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--accent);}
+.toast.warn{border-left:3px solid var(--yellow);}
+.toolbar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.dtarget{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;}
+.dtarget .dp{flex:1;font-size:12px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ri{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-bottom:1px solid rgba(42,53,80,.5);transition:background .1s;}
+.ri:hover{background:var(--panel);}
+.fi{font-size:20px;flex-shrink:0;padding-top:2px;}
+.finfo{flex:1;min-width:0;}
+.fn{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fp{color:var(--text3);font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;}
+.dp2{font-size:11px;color:var(--green2);margin-top:3px;}
+.dp2::before{content:'→ ';color:var(--text3);}
+.ml{display:flex;flex-direction:column;gap:6px;}
+.mi{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:6px;}
+.mi.am{border-color:var(--accent);background:rgba(59,130,246,.08);}
+.mdot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.cc{display:flex;gap:4px;flex-wrap:wrap;}
+.sw{width:18px;height:18px;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:border-color .1s;}
+.sw.sel{border-color:#fff;}
+.pp{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;color:var(--text2);line-height:1.8;white-space:pre-wrap;max-height:260px;overflow-y:auto;font-family:var(--mono);}
+.2c{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.p16{padding:16px;}
+.pb{padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
+.code{font-family:var(--mono);background:var(--bg3);border:1px solid var(--border);padding:2px 6px;border-radius:3px;font-size:11px;color:var(--accent2);}
+.ib{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--text2);line-height:1.7;}
+.wb{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--yellow);line-height:1.7;}
+.sb{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:18px;text-align:center;}
+.hl{color:var(--accent2);}.hlg{color:var(--green2);}.hly{color:var(--yellow);}.hlp{color:var(--purple);}.hlr{color:var(--red);}
+/* BROWSE MODAL STYLES */
+.bdir{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;border-radius:6px;transition:background .1s;font-size:12px;color:var(--accent2);}
+.bdir:hover{background:var(--panel);}
+.bdrives{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;}
+.bdrive{padding:4px 10px;border-radius:4px;background:var(--panel);border:1px solid var(--border);font-size:12px;cursor:pointer;color:var(--text2);}
+.bdrive:hover{border-color:var(--accent);color:var(--text);}
+/* TREE PREVIEW */
+.tree-preview{font-family:var(--mono);font-size:11px;color:var(--text2);line-height:2;padding:12px 16px;}
+.tree-dir{color:var(--accent2);}
+.tree-file{color:var(--text3);}
+.tree-file.fallback{color:var(--yellow);}
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <div class="logo">🗂</div>
+  <h1>AI FILE ORGANIZER</h1>
+  <span class="tb-sub">v3.0</span>
+  <div class="spacer"></div>
+  <div id="svrStatus" class="sp idle" style="font-size:10px;margin-right:4px;">⬡ offline</div>
+  <div id="gStatus" class="sp idle"><div class="dot" id="gDot"></div><span id="gText">IDLE</span></div>
+  <button class="btn btn-sm btn-shut" onclick="openM('mShutdown')">⏻ Shutdown</button>
+</div>
+
+<div class="app">
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <button class="nb active" data-p="explorer"   onclick="showP('explorer')"><span class="nb-icon">📁</span><span class="nb-label">Explorer</span></button>
+  <button class="nb"        data-p="analysis"   onclick="showP('analysis')"><span class="nb-icon">🔬</span><span class="nb-label">Analysis</span></button>
+  <button class="nb"        data-p="categories" onclick="showP('categories')"><span class="nb-icon">🏷</span><span class="nb-label">Categories</span></button>
+  <button class="nb"        data-p="organize"   onclick="showP('organize')"><span class="nb-icon">⚡</span><span class="nb-label">Organize</span></button>
+  <button class="nb"        data-p="tags"       onclick="showP('tags')"><span class="nb-icon">🔖</span><span class="nb-label">Tags</span></button>
+  <button class="nb"        data-p="stats"      onclick="showP('stats')"><span class="nb-icon">📊</span><span class="nb-label">Stats</span></button>
+  <div class="nb-sep"></div>
+  <button class="nb"        data-p="settings"   onclick="showP('settings')"><span class="nb-icon">⚙️</span><span class="nb-label">Settings</span></button>
+  <button class="nb"        data-p="log"        onclick="showP('log')"><span class="nb-icon">📋</span><span class="nb-label">Log</span></button>
+</nav>
+
+<!-- ===== EXPLORER ===== -->
+<div class="panel active" id="panel-explorer">
+  <div class="ph"><span>📁</span><h2>File Explorer</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="openAddDirM()">＋ Add Directory</button>
+      <button class="btn btn-p btn-sm" onclick="doScan()">🔍 Scan</button>
+    </div>
+  </div>
+  <div class="split">
+    <div class="sl" style="width:280px;overflow-y:auto;">
+      <div class="stitle">Watch Directories</div>
+      <div id="wdList" style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;"></div>
+      <div style="padding:0 12px 10px;"><button class="btn btn-g btn-sm" style="width:100%;" onclick="openAddDirM()">＋ Add Directory</button></div>
+      <div class="stitle">Scan Filters</div>
+      <div class="fg"><label>File Types (filter)</label>
+        <select id="ftypeFilter">
+          <option value="">All Files</option>
+          <option value="pdf,doc,docx,txt,md,rtf">Documents</option>
+          <option value="jpg,jpeg,png,gif,svg,webp,bmp">Images</option>
+          <option value="py,js,ts,html,css,json,sql,sh,bat">Code</option>
+          <option value="xls,xlsx,csv,xml">Data/Spreadsheets</option>
+          <option value="mp4,avi,mov,mkv,mp3,wav,flac">Media</option>
+          <option value="zip,tar,gz,7z,rar">Archives</option>
+        </select>
+      </div>
+      <div class="fg"><label>Destination Root</label>
+        <div class="row">
+          <input type="text" id="destRoot" value="C:\Organized" placeholder="C:\Organized" style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="openBrowse('destRoot')" title="Browse">📂</button>
+        </div>
+      </div>
+    </div>
+    <div class="sr">
+      <div class="breadcrumb"><span>📍</span><span id="curPath">No directory scanned yet</span></div>
+      <div class="toolbar" id="expToolbar" style="display:none;">
+        <label class="row" style="gap:6px;cursor:pointer;font-size:12px;">
+          <input type="checkbox" id="masterCb" onchange="selAllFiles(this.checked)">
+          <span style="color:var(--text2);">Select All</span>
+        </label>
+        <button class="btn btn-g btn-sm" onclick="selAllFiles(true)">☑</button>
+        <button class="btn btn-g btn-sm" onclick="selAllFiles(false)">☐</button>
+        <span id="selLbl" style="font-size:11px;color:var(--text3);">0 selected</span>
+        <div class="f1"></div>
+        <input type="text" id="expSearch" placeholder="Filter…" style="width:160px;" oninput="filterExp(this.value)">
+        <button class="btn btn-p btn-sm" onclick="sendToQ()">🔬 Queue for Analysis</button>
+      </div>
+      <div class="file-tree" id="fileTree">
+        <div class="es"><div class="ei">📂</div><p>Add directories and click Scan</p>
+          <button class="btn btn-p btn-sm" onclick="loadDemo()" style="margin-top:8px;">Load Demo Data</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ANALYSIS ===== -->
+<div class="panel" id="panel-analysis">
+  <div class="ph"><span>🔬</span><h2>AI Analysis</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="openPromptM()">👁 Prompt</button>
+      <button class="btn btn-g btn-sm" onclick="clearQ()">🗑 Clear</button>
+      <button class="btn btn-p btn-sm" id="runBtn" onclick="runAnalysis()">▶ Run Analysis</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" id="at-queue"   onclick="aTab('queue')">Queue <span class="tc" id="qBadge">0</span></div>
+    <div class="tab"        id="at-results" onclick="aTabs('results')">Results <span class="tc" id="rBadge">0</span></div>
+    <div class="tab"        id="at-preview" onclick="aTabs('preview')">Preview Plan</div>
+  </div>
+  <div class="tp active" id="atp-queue">
+    <div class="toolbar">
+      <label class="row" style="gap:6px;cursor:pointer;font-size:12px;">
+        <input type="checkbox" id="qMaster" onchange="qSelAll(this.checked)"><span style="color:var(--text2);">All</span>
+      </label>
+      <span id="qSelLbl" style="font-size:11px;color:var(--text3);">0 selected</span>
+      <div class="f1"></div>
+      <input type="text" placeholder="Filter…" style="width:160px;" oninput="filterQ(this.value)">
+    </div>
+    <div style="flex:1;overflow-y:auto;" id="qList"><div class="es"><div class="ei">🔬</div><p>Select files in Explorer and click "Queue for Analysis"</p></div></div>
+  </div>
+  <div class="tp" id="atp-results">
+    <div style="flex:1;overflow-y:auto;" id="rList"><div class="es"><div class="ei">📋</div><p>Run analysis to see AI results</p></div></div>
+  </div>
+  <div class="tp" id="atp-preview">
+    <div class="toolbar">
+      <span style="font-size:11px;color:var(--text3);">Proposed directory structure</span>
+      <div class="f1"></div>
+      <button class="btn btn-g btn-sm" onclick="exportPlan()">⬇ Export</button>
+      <button class="btn btn-s btn-sm" onclick="sendToOrg()">⚡ Send to Organize</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;" id="prevTree"><div class="es"><div class="ei">🗂</div><p>Run analysis to see plan</p></div></div>
+  </div>
+</div>
+
+<!-- ===== CATEGORIES ===== -->
+<div class="panel" id="panel-categories">
+  <div class="ph"><span>🏷</span><h2>Categories &amp; Keywords</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="autoGenCats()">✨ Auto-Generate</button>
+      <button class="btn btn-p btn-sm" onclick="openAddCatM()">＋ New Category</button>
+    </div>
+  </div>
+  <div class="split">
+    <div class="sl" style="width:240px;">
+      <div class="stitle">Categories</div>
+      <div style="flex:1;overflow-y:auto;" id="catList"></div>
+    </div>
+    <div class="sr">
+      <div class="stitle">Category Detail</div>
+      <div id="catDetail" class="cs"><div class="es"><div class="ei">🏷</div><p>Select a category to view and edit</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ORGANIZE ===== -->
+<div class="panel" id="panel-organize">
+  <div class="ph"><span>⚡</span><h2>Organize &amp; Move</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="loadAllToOrg()">📂 Load All Scanned</button>
+      <button class="btn btn-g btn-sm" onclick="loadAnalyzedToOrg()">🔬 Load Analyzed</button>
+    </div>
+  </div>
+  <div class="split">
+    <div class="sl" style="width:300px;overflow-y:auto;">
+      <div class="stitle">Operation Settings</div>
+      <div class="fg"><label>Operation Mode</label>
+        <select id="opMode">
+          <option value="copy">📋 Copy Files (safe — keeps originals)</option>
+          <option value="move">✂ Move Files (removes from source)</option>
+        </select>
+      </div>
+      <div class="fg"><label>Destination Directory</label>
+        <div class="row">
+          <input type="text" id="orgDest" value="C:\Organized" placeholder="C:\Organized" style="flex:1;" oninput="refreshPreview()">
+          <button class="btn btn-g btn-sm" onclick="openBrowse('orgDest')" title="Browse">📂</button>
+        </div>
+      </div>
+      <div class="fg"><label>Directory Structure</label>
+        <select id="structMode" onchange="structChange();refreshPreview()">
+          <option value="ai">AI Suggested Path</option>
+          <option value="category">By Category</option>
+          <option value="type">By File Type</option>
+          <option value="date">By Date Modified</option>
+          <option value="custom">Custom Template</option>
+        </select>
+      </div>
+      <div class="fg" id="custTplG" style="display:none;"><label>Path Template</label>
+        <input type="text" id="custTpl" value="{category}/{year}/{month}/{filename}" oninput="refreshPreview()">
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Variables: {category} {year} {month} {type} {filename}</div>
+      </div>
+      <div class="fg"><label>Conflict Resolution</label>
+        <select id="conflictMode">
+          <option value="rename">Rename (add number)</option>
+          <option value="skip">Skip</option>
+          <option value="overwrite">Overwrite</option>
+        </select>
+      </div>
+      <div class="fg">
+        <div class="row sb"><label style="margin:0;">Dry Run (preview only)</label>
+          <label class="tog"><input type="checkbox" id="dryRun" checked><span class="tsl"></span></label></div>
+        <div class="wb" style="margin-top:8px;font-size:10px;">⚠ Disable dry run to actually move/copy files</div>
+      </div>
+      <div style="padding:12px 16px;">
+        <button class="btn btn-s" style="width:100%;margin-bottom:8px;" onclick="execOrg()">⚡ Execute Organization</button>
+        <button class="btn btn-g" style="width:100%;" onclick="refreshPreview()">🔄 Refresh Preview</button>
+      </div>
+    </div>
+    <div class="sr">
+      <div class="tabs">
+        <div class="tab active" id="ot-pending"   onclick="oTab('pending')">Pending <span class="tc" id="pendBadge">0</span></div>
+        <div class="tab"        id="ot-preview"   onclick="oTab('preview')">Structure Preview</div>
+        <div class="tab"        id="ot-completed" onclick="oTab('completed')">Completed <span class="tc" id="compBadge">0</span></div>
+        <div class="tab"        id="ot-failed"    onclick="oTab('failed')">Failed <span class="tc" id="failBadge">0</span></div>
+      </div>
+      <div class="tp active" id="otp-pending" style="flex-direction:column;">
+        <div class="toolbar">
+          <label class="row" style="gap:6px;cursor:pointer;font-size:12px;">
+            <input type="checkbox" id="orgMaster" onchange="orgSelAll(this.checked)"><span style="color:var(--text2);">All</span>
+          </label>
+          <span id="orgSelLbl" style="font-size:11px;color:var(--text3);">0 selected</span>
+          <div class="f1"></div>
+          <input type="text" placeholder="Filter…" style="width:150px;" oninput="filterOrg(this.value)">
+        </div>
+        <div style="flex:1;overflow-y:auto;" id="pendList"><div class="es"><div class="ei">⏳</div><p>Click "Load Analyzed" or "Load All Scanned" above</p></div></div>
+        <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);">
+          <div class="pbar"><div class="pfill" id="orgFill" style="width:0%"></div></div>
+          <div style="margin-top:6px;font-size:11px;color:var(--text3);" id="orgProg">Ready</div>
+        </div>
+      </div>
+      <div class="tp" id="otp-preview" style="flex-direction:column;">
+        <div style="flex:1;overflow-y:auto;" id="structPrev">
+          <div class="es"><div class="ei">🗂</div><p>Load files and click "Refresh Preview"</p></div>
+        </div>
+      </div>
+      <div class="tp" id="otp-completed" style="flex-direction:column;">
+        <div style="flex:1;overflow-y:auto;" id="compList"><div class="es"><div class="ei">✅</div><p>Completed operations appear here</p></div></div>
+      </div>
+      <div class="tp" id="otp-failed" style="flex-direction:column;">
+        <div style="flex:1;overflow-y:auto;" id="failList"><div class="es"><div class="ei">❌</div><p>Failed operations appear here</p></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAGS ===== -->
+<div class="panel" id="panel-tags">
+  <div class="ph"><span>🔖</span><h2>Tag Management</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="loadTagsFromServer()">↻ Refresh</button>
+      <button class="btn btn-p btn-sm" onclick="saveTagsToServer()">💾 Save Tags</button>
+    </div>
+  </div>
+  <div class="split">
+    <div class="sl" style="width:320px;overflow-y:auto;">
+      <div class="stitle">Add / Import Tags</div>
+      <div class="fg"><label>New Tag</label>
+        <div class="row">
+          <input type="text" id="newTagInput" placeholder="tag-name (lowercase, hyphenated)"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addTag();}">
+          <button class="btn btn-p btn-sm" onclick="addTag()">Add</button>
+        </div>
+      </div>
+      <div class="fg"><label>Bulk Import (one per line)</label>
+        <textarea id="bulkTagInput" style="height:80px;font-size:11px;" placeholder="tag-one&#10;tag-two&#10;tag-three"></textarea>
+        <button class="btn btn-g btn-sm" style="width:100%;margin-top:6px;" onclick="bulkImportTags()">Import All</button>
+      </div>
+      <div class="fg">
+        <div class="ib">Tags are used by the AI to label files and by the organize step to build directory paths. Keep tags short, lowercase, and descriptive.</div>
+      </div>
+    </div>
+    <div class="sr">
+      <div class="stitle">All Tags <span id="tagCount" style="color:var(--text3);font-size:11px;margin-left:8px;"></span></div>
+      <div class="toolbar">
+        <input type="text" id="tagSearch" placeholder="Search tags…" style="flex:1;" oninput="filterTags(this.value)">
+        <button class="btn btn-d btn-sm" onclick="clearAllTags()">🗑 Clear All</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:12px 16px;" id="tagGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== STATS ===== -->
+<div class="panel" id="panel-stats">
+  <div class="ph"><span>📊</span><h2>Statistics</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="loadStats()">↻ Refresh</button>
+      <button class="btn btn-g btn-sm" onclick="exportStats()">⬇ Export</button>
+    </div>
+  </div>
+  <div style="flex:1;overflow-y:auto;">
+    <div class="sg">
+      <div class="sc"><div class="lbl">Total Files</div><div class="val hl" id="sTotal">0</div><div class="sub">Scanned</div></div>
+      <div class="sc"><div class="lbl">Analyzed</div><div class="val hlg" id="sAnlz">0</div><div class="sub">By AI</div></div>
+      <div class="sc"><div class="lbl">Categorized</div><div class="val hlp" id="sCat">0</div><div class="sub">With categories</div></div>
+      <div class="sc"><div class="lbl">Moved/Copied</div><div class="val hly" id="sMoved">0</div><div class="sub">Ops done</div></div>
+      <div class="sc"><div class="lbl">Total Size</div><div class="val" style="font-size:18px;" id="sSize">0 B</div><div class="sub">All files</div></div>
+      <div class="sc"><div class="lbl">Categories</div><div class="val hlp" id="sCats">0</div><div class="sub">Defined</div></div>
+    </div>
+    <div style="padding:0 16px 16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div><div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;">By Category</div>
+        <div class="bch" id="catChart"><div class="es" style="padding:20px;"><p>Run analysis first</p></div></div></div>
+      <div><div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;">By File Type</div>
+        <div class="bch" id="typeChart"><div class="es" style="padding:20px;"><p>Scan files first</p></div></div></div>
+    </div>
+    <div style="padding:0 16px 16px;">
+      <div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;">Recent Operations</div>
+      <table class="dt"><thead><tr><th>Time</th><th>File</th><th>Op</th><th>Destination</th><th>Status</th></tr></thead>
+      <tbody id="opsBody"><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:24px;">No operations yet</td></tr></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div class="panel" id="panel-settings">
+  <div class="ph"><span>⚙️</span><h2>Settings</h2>
+    <div class="pha">
+      <button class="btn btn-g btn-sm" onclick="resetSettings()">↩ Reset</button>
+      <button class="btn btn-p btn-sm" onclick="saveAllSettings()">💾 Save All</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" id="st-ai"        onclick="sTab('ai')">AI Model</div>
+    <div class="tab"        id="st-providers" onclick="sTab('providers')">Providers</div>
+    <div class="tab"        id="st-ollama"    onclick="sTab('ollama')">Ollama</div>
+    <div class="tab"        id="st-filetypes" onclick="sTab('filetypes')">File Types</div>
+    <div class="tab"        id="st-system"    onclick="sTab('system')">System</div>
+    <div class="tab"        id="st-database"  onclick="sTab('database')">Database</div>
+  </div>
+  <!-- AI MODEL -->
+  <div class="tp active cs" id="stp-ai">
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Active Provider &amp; Model</div>
+      <div class="fg"><label>Provider</label>
+        <select id="aiProvider" onchange="providerChanged()">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="ollama">Ollama (Local)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="fg" id="apiKeyRow"><label>API Key</label>
+        <div class="row">
+          <input type="password" id="apiKey" placeholder="sk-ant-..." style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="toggleKey()">👁</button>
+          <button class="btn btn-g btn-sm" onclick="testAIConn()">🔌 Test</button>
+        </div>
+      </div>
+      <div class="fg" id="ollamaUrlAIRow" style="display:none;"><label>Ollama URL</label>
+        <div class="row">
+          <input type="text" id="aiOllamaUrl" value="http://localhost:11434" oninput="syncOllamaUrl('ai')" style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="testOllamaAI()">🔌 Test</button>
+        </div>
+        <div id="aiOllamaStatus" style="font-size:11px;color:var(--text3);margin-top:4px;">Not tested</div>
+      </div>
+      <div class="fg"><label>Model</label><select id="aiModel"></select></div>
+      <div class="fg" id="custEpRow" style="display:none;"><label>API Endpoint</label>
+        <input type="text" id="custEndpoint" placeholder="https://api.example.com/v1/chat/completions"></div>
+    </div>
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Model Parameters</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="fg"><label>Temperature <span class="hl" id="tempLbl">0.3</span></label>
+          <input type="range" min="0" max="1" step="0.05" value="0.3" id="tempSlider" oninput="document.getElementById('tempLbl').textContent=this.value"></div>
+        <div class="fg"><label>Max Tokens</label><input type="number" id="maxTok" value="1000" min="100" max="8000"></div>
+        <div class="fg"><label>Batch Size</label><input type="number" id="batchSz" value="5" min="1" max="50"></div>
+        <div class="fg"><label>Timeout (sec)</label><input type="number" id="timeoutSec" value="30" min="5" max="300"></div>
+      </div>
+    </div>
+    <div class="pb">
+      <div class="row sb" style="margin-bottom:8px;">
+        <div style="font-family:var(--sans);font-weight:700;color:var(--text2);">System Prompt</div>
+        <div class="row" style="gap:6px;">
+          <button class="btn btn-g btn-sm" onclick="openPromptM()">👁 Preview</button>
+          <button class="btn btn-g btn-sm" onclick="resetPrompt()">↩ Default</button>
+        </div>
+      </div>
+      <textarea id="sysPrompt" style="height:150px;font-size:11px;line-height:1.6;"></textarea>
+      <div class="ib" style="margin-top:8px;">Must return JSON: <span class="code">category</span> <span class="code">subcategory</span> <span class="code">tags[3]</span> <span class="code">suggested_path</span> <span class="code">confidence</span></div>
+    </div>
+  </div>
+  <!-- PROVIDERS -->
+  <div class="tp cs" id="stp-providers">
+    <div class="pb">
+      <div class="row sb" style="margin-bottom:12px;">
+        <div style="font-family:var(--sans);font-weight:700;color:var(--text2);">AI Providers</div>
+        <button class="btn btn-p btn-sm" onclick="openAddProviderM()">＋ Add Provider</button>
+      </div>
+      <div id="providerList" class="ml"></div>
+    </div>
+    <div class="ib">Each provider can have its own API key, endpoint, and model list. Use the "Edit" button to configure. Select the active provider in the "AI Model" tab.</div>
+  </div>
+  <!-- OLLAMA -->
+  <div class="tp cs" id="stp-ollama">
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Ollama Connection</div>
+      <div class="fg"><label>Ollama Server URL (must be local)</label>
+        <input type="text" id="ollamaUrl" value="http://localhost:11434" oninput="syncOllamaUrl('ollama')"></div>
+      <div class="row" style="gap:8px;margin-bottom:12px;">
+        <button class="btn btn-g btn-sm" onclick="testOllama()">🔌 Test</button>
+        <button class="btn btn-g btn-sm" onclick="testOllama()">↻ Refresh</button>
+        <span id="ollamaStatus" style="font-size:11px;color:var(--text3);">Not tested</span>
+      </div>
+      <div class="ib" style="margin-bottom:12px;">Ollama must run locally: <span class="code">ollama serve</span> — this app will NEVER contact ollama.com</div>
+    </div>
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:10px;">Installed Models</div>
+      <div id="ollamaModelList" class="ml"><div class="es" style="padding:20px;"><p>Test connection to see installed models</p></div></div>
+    </div>
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:10px;">Pull New Model</div>
+      <div class="row"><input type="text" id="newMdlName" placeholder="llama3.2, mistral, phi4…" style="flex:1;">
+        <button class="btn btn-p btn-sm" onclick="pullModel()">⬇ Pull</button></div>
+      <div id="pullWrap" style="display:none;margin-top:10px;">
+        <div class="pbar"><div class="pfill" id="pullFill" style="width:0%"></div></div>
+        <div style="margin-top:4px;font-size:11px;color:var(--text3);" id="pullStatus">Connecting…</div>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);">Quick:
+        <span class="code" style="cursor:pointer;" onclick="document.getElementById('newMdlName').value='llama3.2'">llama3.2</span>
+        <span class="code" style="cursor:pointer;" onclick="document.getElementById('newMdlName').value='mistral'">mistral</span>
+        <span class="code" style="cursor:pointer;" onclick="document.getElementById('newMdlName').value='phi4'">phi4</span>
+        <span class="code" style="cursor:pointer;" onclick="document.getElementById('newMdlName').value='gemma3'">gemma3</span>
+      </div>
+    </div>
+  </div>
+  <!-- FILE TYPES -->
+  <div class="tp cs" id="stp-filetypes">
+    <div class="pb">
+      <div class="row sb" style="margin-bottom:12px;">
+        <div style="font-family:var(--sans);font-weight:700;color:var(--text2);">File Type Groups</div>
+        <button class="btn btn-p btn-sm" onclick="openAddFtM()">＋ Add Group</button>
+      </div>
+      <div id="ftypeList"></div>
+    </div>
+    <div class="ib">File type groups are used for classification and the "By File Type" organize structure. Add extensions without the dot, comma-separated.</div>
+  </div>
+  <!-- SYSTEM -->
+  <div class="tp cs" id="stp-system">
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Server</div>
+      <div class="fg"><label>Listening Port</label><input type="number" id="cfgPort" value="8765" min="1024" max="65535"></div>
+      <div class="fg"><label>Log File Path</label>
+        <div class="row">
+          <input type="text" id="cfgLogPath" style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="openBrowse('cfgLogPath')">📂</button>
+        </div>
+      </div>
+      <div class="fg"><label>Log Level</label>
+        <select id="cfgLogLevel"><option>DEBUG</option><option selected>INFO</option><option>WARNING</option><option>ERROR</option></select></div>
+    </div>
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Analysis</div>
+      <div class="fg"><div class="row sb"><label style="margin:0;">Read file content for AI analysis</label>
+        <label class="tog"><input type="checkbox" id="cfgReadContent" checked><span class="tsl"></span></label></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Reads first N bytes of text files to improve AI accuracy</div>
+      </div>
+      <div class="fg"><label>Max Content Preview (bytes)</label><input type="number" id="cfgPreviewBytes" value="4096" min="512" max="65536"></div>
+      <div class="fg"><div class="row sb"><label style="margin:0;">Fallback to heuristic if AI fails</label>
+        <label class="tog"><input type="checkbox" id="cfgFallback" checked><span class="tsl"></span></label></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Uses filename/extension rules when AI is unavailable</div>
+      </div>
+    </div>
+    <div class="ib">Port changes require a server restart. Log path must be a full path to a writable .log file.</div>
+  </div>
+  <!-- DATABASE -->
+  <div class="tp cs" id="stp-database">
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">SQLite Database</div>
+      <div class="fg"><label>Database Path</label><input type="text" id="dbPathEl" value="" readonly></div>
+      <div class="row" style="gap:8px;margin-bottom:12px;">
+        <button class="btn btn-g btn-sm" onclick="loadDbStats()">📊 Stats</button>
+        <button class="btn btn-g btn-sm" onclick="backupDb()">💾 Backup</button>
+        <button class="btn btn-d btn-sm" onclick="clearDb()">🗑 Clear DB</button>
+      </div>
+      <div id="dbStatsBox" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;color:var(--text2);">Click "Stats" to view information.</div>
+    </div>
+    <div><div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:10px;">Schema</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:11px;color:var(--text3);font-family:var(--mono);line-height:2;">
+        <span style="color:var(--purple);">files</span>(id, path, name, size, modified, file_type, hash)<br>
+        <span style="color:var(--purple);">analysis</span>(id, file_id, model, category, subcategory, tags, suggested_path, confidence, method)<br>
+        <span style="color:var(--purple);">operations</span>(id, file_id, operation, source, destination, status, dry_run, error_msg)<br>
+        <span style="color:var(--purple);">categories</span>(id, name, color, keywords, path_template)<br>
+        <span style="color:var(--purple);">tags</span>(id, name, color)
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LOG ===== -->
+<div class="panel" id="panel-log">
+  <div class="ph"><span>📋</span><h2>Activity Log</h2>
+    <div class="pha"><button class="btn btn-g btn-sm" onclick="clearLog()">🗑 Clear</button>
+      <button class="btn btn-g btn-sm" onclick="exportLog()">⬇ Export</button></div>
+  </div>
+  <div class="toolbar">
+    <select id="logTF" style="width:120px;" onchange="applyLogF()">
+      <option value="">All</option><option value="info">ℹ Info</option>
+      <option value="success">✓ Success</option><option value="warn">⚠ Warn</option>
+      <option value="error">✗ Error</option><option value="ai">🤖 AI</option>
+    </select>
+    <input type="text" id="logSF" placeholder="Search log…" style="flex:1;" oninput="applyLogF()">
+    <button class="btn btn-g btn-sm" onclick="clearLog()">🗑</button>
+    <label class="tog" title="Auto-scroll"><input type="checkbox" id="autoScroll" checked><span class="tsl"></span></label>
+    <span style="font-size:10px;color:var(--text3);">Scroll</span>
+  </div>
+  <div class="log-area" id="logArea"></div>
+  <div style="padding:5px 16px;border-top:1px solid var(--border);background:var(--bg2);display:flex;gap:16px;font-size:10px;color:var(--text3);">
+    <span id="logTotal">0 entries</span><span id="logVisible">0 visible</span>
+  </div>
+</div>
+</div><!-- .app -->
+
+<!-- ========== MODALS ========== -->
+<!-- Add Directory -->
+<div class="mo" id="mAddDir">
+  <div class="md md-sm">
+    <div class="mh"><span>📁</span><h3>Add Watch Directory</h3><button class="btn btn-g btn-sm" onclick="closeM('mAddDir')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Directory Path</label>
+        <div class="row">
+          <input type="text" id="newDirPath" placeholder="C:\Users\YourName\Documents" style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="openBrowse('newDirPath')" title="Browse">📂</button>
+        </div>
+      </div>
+      <div class="fg"><div class="row sb"><label style="margin:0;">Include Subdirectories</label>
+        <label class="tog"><input type="checkbox" id="inclSub" checked><span class="tsl"></span></label></div></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mAddDir')">Cancel</button>
+      <button class="btn btn-p" onclick="addDir()">Add Directory</button></div>
+  </div>
+</div>
+
+<!-- Browse Directory -->
+<div class="mo" id="mBrowse">
+  <div class="md">
+    <div class="mh"><span>📂</span><h3 id="browseTitle">Select Directory</h3><button class="btn btn-g btn-sm" onclick="closeM('mBrowse')">✕</button></div>
+    <div class="mb">
+      <div class="row" style="margin-bottom:10px;gap:6px;">
+        <div style="flex:1;font-size:12px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="browseCurrentPath">/</div>
+        <button class="btn btn-g btn-sm" onclick="browseUp()">↑ Up</button>
+      </div>
+      <div id="browseDrives" class="bdrives"></div>
+      <div id="browseDirs" style="max-height:320px;overflow-y:auto;"></div>
+    </div>
+    <div class="mf">
+      <div style="flex:1;font-size:11px;color:var(--text3);">Selected: <span id="browseSelected" style="color:var(--accent2);"></span></div>
+      <button class="btn btn-g" onclick="closeM('mBrowse')">Cancel</button>
+      <button class="btn btn-p" onclick="confirmBrowse()">Select This Directory</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Category -->
+<div class="mo" id="mAddCat">
+  <div class="md"><div class="mh"><span>🏷</span><h3>New Category</h3><button class="btn btn-g btn-sm" onclick="closeM('mAddCat')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Name</label><input type="text" id="newCatName" placeholder="e.g. Work Documents"></div>
+      <div class="fg"><label>Color</label>
+        <div class="cc" id="colorPicker">
+          <div class="sw sel" style="background:#3b82f6;" data-c="#3b82f6" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#10b981;" data-c="#10b981" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#f59e0b;" data-c="#f59e0b" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#ef4444;" data-c="#ef4444" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#8b5cf6;" data-c="#8b5cf6" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#ec4899;" data-c="#ec4899" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#06b6d4;" data-c="#06b6d4" onclick="pickC(this)"></div>
+          <div class="sw" style="background:#84cc16;" data-c="#84cc16" onclick="pickC(this)"></div>
+        </div>
+      </div>
+      <div class="fg"><label>Keywords</label>
+        <div class="tc-wrap" id="newCatKwEl"></div>
+        <div class="ci"><input type="text" id="newCatKwIn" placeholder="Type keyword, press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatKw();}">
+          <button class="btn btn-g btn-sm" onclick="addCatKw()">Add</button></div>
+      </div>
+      <div class="fg"><label>Directory Path</label><input type="text" id="newCatPath" placeholder="Work/Documents"></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mAddCat')">Cancel</button>
+      <button class="btn btn-p" onclick="saveCat()">Save</button></div>
+  </div>
+</div>
+
+<!-- Execute Confirm -->
+<div class="mo" id="mExec">
+  <div class="md"><div class="mh"><span>⚡</span><h3>Confirm Operation</h3></div>
+    <div class="mb"><div id="execBody"></div></div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mExec')">Cancel</button>
+      <button class="btn btn-s" onclick="doExec()">✓ Confirm &amp; Execute</button></div>
+  </div>
+</div>
+
+<!-- Prompt Preview -->
+<div class="mo" id="mPrompt">
+  <div class="md md-wide"><div class="mh"><span>👁</span><h3>AI System Prompt Preview</h3><button class="btn btn-g btn-sm" onclick="closeM('mPrompt')">✕</button></div>
+    <div class="mb">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">This exact text is sent to the AI model for every file. Edit in Settings → AI Model.</div>
+      <div class="pp" id="promptEl"></div>
+      <div style="margin-top:14px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:14px;">
+        <div style="font-family:var(--sans);font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Expected Response Format</div>
+        <pre style="font-size:11px;color:var(--green2);line-height:1.8;">{"category":"Work Documents","subcategory":"Reports","tags":["quarterly","finance","2024"],"suggested_path":"Work/Finance/Reports/2024","confidence":0.95}</pre>
+        <div style="margin-top:8px;font-size:11px;color:var(--text3);line-height:1.8;">
+          <b style="color:var(--text2);">tags</b> — exactly 3 lowercase keywords · <b style="color:var(--text2);">suggested_path</b> — forward-slash relative path · <b style="color:var(--text2);">confidence</b> — 0 to 1
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-g btn-sm" onclick="resetPrompt();closeM('mPrompt')">↩ Reset Default</button>
+      <button class="btn btn-p" onclick="closeM('mPrompt');showP('settings');sTab('ai')">✏ Edit in Settings</button></div>
+  </div>
+</div>
+
+<!-- Add Provider -->
+<div class="mo" id="mAddProvider">
+  <div class="md"><div class="mh"><span>🔌</span><h3 id="provModalTitle">Add Provider</h3><button class="btn btn-g btn-sm" onclick="closeM('mAddProvider')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>ID (unique, no spaces)</label><input type="text" id="provId" placeholder="my-provider"></div>
+      <div class="fg"><label>Display Name</label><input type="text" id="provName" placeholder="My Custom AI"></div>
+      <div class="fg"><label>Type</label>
+        <select id="provType">
+          <option value="anthropic">Anthropic (Claude API format)</option>
+          <option value="openai">OpenAI (Chat Completions format)</option>
+          <option value="ollama">Ollama (local generate)</option>
+        </select>
+      </div>
+      <div class="fg"><label>API Endpoint</label><input type="text" id="provEndpoint" placeholder="https://api.example.com/v1/messages"></div>
+      <div class="fg"><label>API Key</label><input type="password" id="provKey" placeholder="sk-..."></div>
+      <div class="fg"><label>Available Models (comma-separated)</label>
+        <input type="text" id="provModels" placeholder="model-name-1, model-name-2"></div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mAddProvider')">Cancel</button>
+      <button class="btn btn-p" onclick="saveProvider()">Save Provider</button></div>
+  </div>
+</div>
+
+<!-- Add File Type Group -->
+<div class="mo" id="mAddFt">
+  <div class="md md-sm"><div class="mh"><span>📋</span><h3>Add File Type Group</h3><button class="btn btn-g btn-sm" onclick="closeM('mAddFt')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Group Name</label><input type="text" id="ftName" placeholder="e.g. 3D Models"></div>
+      <div class="fg"><label>Extensions (comma-separated, no dots)</label>
+        <input type="text" id="ftExts" placeholder="stl, obj, fbx, blend"></div>
+      <div class="fg"><label>Color</label>
+        <div class="cc" id="ftColorPicker">
+          <div class="sw sel" style="background:#3b82f6;" data-c="#3b82f6" onclick="pickFtC(this)"></div>
+          <div class="sw" style="background:#10b981;" data-c="#10b981" onclick="pickFtC(this)"></div>
+          <div class="sw" style="background:#f59e0b;" data-c="#f59e0b" onclick="pickFtC(this)"></div>
+          <div class="sw" style="background:#8b5cf6;" data-c="#8b5cf6" onclick="pickFtC(this)"></div>
+          <div class="sw" style="background:#ec4899;" data-c="#ec4899" onclick="pickFtC(this)"></div>
+          <div class="sw" style="background:#06b6d4;" data-c="#06b6d4" onclick="pickFtC(this)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mAddFt')">Cancel</button>
+      <button class="btn btn-p" onclick="saveFt()">Save</button></div>
+  </div>
+</div>
+
+<!-- Shutdown -->
+<div class="mo" id="mShutdown">
+  <div class="md md-sm"><div class="mh"><span>⏻</span><h3>Shutdown Server</h3><button class="btn btn-g btn-sm" onclick="closeM('mShutdown')">✕</button></div>
+    <div class="mb"><div class="sb">
+      <div style="font-size:40px;margin-bottom:12px;">⏻</div>
+      <div style="font-family:var(--sans);font-size:14px;font-weight:700;color:var(--red);margin-bottom:8px;">Shutdown AI File Organizer?</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.7;">Stops the Python backend. Any running operations will be cancelled.<br>
+        Restart with <span class="code">START.bat</span> or <span class="code">python server.py</span></div>
+    </div></div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mShutdown')">Cancel</button>
+      <button class="btn btn-d" onclick="doShutdown()">⏻ Shutdown</button></div>
+  </div>
+</div>
+
+<div class="toast-c" id="toastC"></div>
+
+<script>
+// ================================================================
+// CONSTANTS & STATE
+// ================================================================
+const API = 'http://localhost:8765';
+
+const DEFAULT_PROMPT = `You are an expert file organizer. Analyze the file information and classify it.
+Respond with ONLY valid JSON, no markdown, no explanation:
+{"category":"<name>","subcategory":"<name or empty>","tags":["<tag1>","<tag2>","<tag3>"],"suggested_path":"<Category/Sub>","confidence":<0-1>}
+- tags: exactly 3 short lowercase descriptive keywords
+- suggested_path: relative path using forward slashes, no leading slash
+- confidence: 0.0 to 1.0`;
+
+const PROVIDER_MODELS = {
+  anthropic:['claude-sonnet-4-20250514 (Recommended)','claude-opus-4-5','claude-haiku-4-5-20251001'],
+  openai:['gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],
+  ollama:[],
+  custom:['custom-model'],
+};
+
+const S = {
+  files:[],queue:[],results:[],pending:[],
+  categories:[], tags:[],
+  ollamaModels:[],activeOllamaModel:null,
+  providers:[],fileTypes:{},
+  color:'#3b82f6', ftColor:'#3b82f6',
+  newCatKws:[],
+  stats:{total:0,analyzed:0,categorized:0,moved:0},
+  browseTarget:'', browseCurrent:'',
+  serverOnline:false,
+};
+
+// ================================================================
+// BOOT
+// ================================================================
+document.addEventListener('DOMContentLoaded', async () => {
+  initDefaultCategories();
+  renderCatList();
+  document.getElementById('sysPrompt').value = DEFAULT_PROMPT;
+  renderWatchDirs();
+  addLog('AI File Organizer v3.0 ready', 'info');
+  // Try connecting to server
+  await checkServer();
+  setInterval(checkServer, 10000);
+  initProviders();
+  initFileTypes();
+  updateModelSelect();
+  loadTagsFromServer();
+});
+
+async function checkServer() {
+  try {
+    const r = await fetch(`${API}/api/config`, {signal:AbortSignal.timeout(2000)});
+    if (r.ok) {
+      const cfg = await r.json();
+      S.serverOnline = true;
+      document.getElementById('svrStatus').textContent = '⬢ online';
+      document.getElementById('svrStatus').style.color = 'var(--green2)';
+      // Load config values into UI
+      if (cfg.system_prompt) document.getElementById('sysPrompt').value = cfg.system_prompt;
+      if (cfg.port) document.getElementById('cfgPort').value = cfg.port;
+      if (cfg.log_path) document.getElementById('cfgLogPath').value = cfg.log_path;
+      if (cfg.log_level) document.getElementById('cfgLogLevel').value = cfg.log_level;
+      if (cfg.max_preview_bytes) document.getElementById('cfgPreviewBytes').value = cfg.max_preview_bytes;
+      if (cfg.dest_root) { document.getElementById('destRoot').value = cfg.dest_root; document.getElementById('orgDest').value = cfg.dest_root; }
+      if (cfg.file_types) { S.fileTypes = cfg.file_types; renderFileTypes(); }
+      if (cfg.providers) { S.providers = cfg.providers; renderProviders(); }
+      if (cfg.tags) S.tags = cfg.tags;
+      if (cfg.db_path) document.getElementById('dbPathEl').value = cfg.db_path;
+    }
+  } catch(e) {
+    S.serverOnline = false;
+    document.getElementById('svrStatus').textContent = '⬡ offline';
+    document.getElementById('svrStatus').style.color = 'var(--text3)';
+  }
+}
+
+// ================================================================
+// NAV
+// ================================================================
+function showP(name) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelector(`[data-p="${name}"]`)?.classList.add('active');
+  if (name==='tags') renderTagGrid();
+  if (name==='stats') loadStats();
+  if (name==='settings') { renderProviders(); renderFileTypes(); }
+}
+function sTab(t) {
+  ['ai','providers','ollama','filetypes','system','database'].forEach(x=>{
+    document.getElementById('st-'+x)?.classList.toggle('active',x===t);
+    document.getElementById('stp-'+x)?.classList.toggle('active',x===t);
+  });
+}
+function aTabs(t) {
+  ['queue','results','preview'].forEach(x=>{
+    document.getElementById('at-'+x)?.classList.toggle('active',x===t);
+    document.getElementById('atp-'+x)?.classList.toggle('active',x===t);
+  });
+}
+function aTab(t) { aTabs(t); }
+function oTab(t) {
+  ['pending','preview','completed','failed'].forEach(x=>{
+    document.getElementById('ot-'+x)?.classList.toggle('active',x===t);
+    document.getElementById('otp-'+x)?.classList.toggle('active',x===t);
+  });
+  if (t==='preview') refreshPreview();
+}
+
+// ================================================================
+// EXPLORER
+// ================================================================
+let watchDirs = ['C:\\Users\\User\\Documents','C:\\Users\\User\\Downloads'];
+
+function renderWatchDirs() {
+  document.getElementById('wdList').innerHTML = watchDirs.map((d,i)=>`
+    <div class="dtarget">
+      <span>📁</span><span class="dp">${d}</span>
+      <button class="btn btn-g btn-sm" onclick="watchDirs.splice(${i},1);renderWatchDirs()">✕</button>
+    </div>`).join('');
+}
+
+function openAddDirM() { document.getElementById('newDirPath').value=''; openM('mAddDir'); }
+
+function addDir() {
+  const p = document.getElementById('newDirPath').value.trim();
+  if (!p) { toast('Enter a directory path','error'); return; }
+  if (!watchDirs.includes(p)) watchDirs.push(p);
+  renderWatchDirs();
+  closeM('mAddDir');
+  addLog(`Watch directory added: ${p}`,'info');
+  toast('Directory added','success');
+}
+
+async function doScan() {
+  if (!watchDirs.length) { toast('Add at least one directory first','warn'); return; }
+  addLog(`Scanning ${watchDirs.length} director(ies)…`,'info');
+  setStatus('running','SCANNING');
+  if (S.serverOnline) {
+    try {
+      const ft = document.getElementById('ftypeFilter').value;
+      const r = await fetch(`${API}/api/scan`, {method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({directories:watchDirs,file_types:ft})});
+      const d = await r.json();
+      S.files = d.files;
+    } catch(e) { addLog('Scan error: '+e.message,'error'); loadDemo(); return; }
+  } else { loadDemo(); return; }
+  renderFileTree();
+  document.getElementById('curPath').textContent = watchDirs.join(' · ');
+  document.getElementById('expToolbar').style.display='flex';
+  S.stats.total = S.files.length;
+  updateStatCards();
+  renderTypeChart();
+  setStatus('done','READY');
+  addLog(`Scan complete — ${S.files.length} files found`,'success');
+}
+
+function loadDemo() {
+  S.files = [
+    {name:'Q4_Financial_Report.pdf', path:'C:\\Documents\\Q4_Financial_Report.pdf', size:245000,  type:'pdf',  icon:'📄', modified:Date.now()/1000-86400},
+    {name:'project_notes.txt',       path:'C:\\Documents\\project_notes.txt',       size:12000,   type:'txt',  icon:'📝', modified:Date.now()/1000-86400*2},
+    {name:'family_vacation.jpg',     path:'C:\\Pictures\\family_vacation.jpg',       size:3200000, type:'jpg',  icon:'🖼', modified:Date.now()/1000-86400*10},
+    {name:'tax_return_2023.pdf',     path:'C:\\Downloads\\tax_return_2023.pdf',     size:180000,  type:'pdf',  icon:'📄', modified:Date.now()/1000-86400*60},
+    {name:'main.py',                 path:'C:\\Projects\\app\\main.py',             size:8500,    type:'py',   icon:'🐍', modified:Date.now()/1000-3600},
+    {name:'invoice_client_abc.docx', path:'C:\\Documents\\invoice_abc.docx',        size:52000,   type:'docx', icon:'📃', modified:Date.now()/1000-86400*5},
+    {name:'meeting_notes.txt',       path:'C:\\Documents\\meeting_notes.txt',       size:5600,    type:'txt',  icon:'📝', modified:Date.now()/1000-86400*3},
+    {name:'budget_2025.xlsx',        path:'C:\\Finance\\budget_2025.xlsx',          size:98000,   type:'xlsx', icon:'📊', modified:Date.now()/1000-86400*7},
+    {name:'logo_design_v3.png',      path:'C:\\Design\\logo_design_v3.png',         size:450000,  type:'png',  icon:'🖼', modified:Date.now()/1000-86400*14},
+    {name:'README.md',               path:'C:\\Projects\\myapp\\README.md',         size:3200,    type:'md',   icon:'📋', modified:Date.now()/1000-7200},
+    {name:'contract_vendor.pdf',     path:'C:\\Legal\\contract_vendor.pdf',         size:320000,  type:'pdf',  icon:'📄', modified:Date.now()/1000-86400*30},
+    {name:'health_insurance.pdf',    path:'C:\\Personal\\health_insurance.pdf',     size:85000,   type:'pdf',  icon:'📄', modified:Date.now()/1000-86400*90},
+    {name:'database_schema.sql',     path:'C:\\Dev\\db\\database_schema.sql',       size:14000,   type:'sql',  icon:'🗄', modified:Date.now()/1000-86400*4},
+    {name:'sales_pres.pptx',         path:'C:\\Work\\sales_pres.pptx',              size:2100000, type:'pptx', icon:'📊', modified:Date.now()/1000-86400*2},
+    {name:'christmas_photo.jpg',     path:'C:\\Pictures\\christmas_photo.jpg',      size:4200000, type:'jpg',  icon:'🖼', modified:Date.now()/1000-86400*100},
+  ];
+  renderFileTree();
+  document.getElementById('curPath').textContent = 'Demo data (server offline)';
+  document.getElementById('expToolbar').style.display='flex';
+  S.stats.total = S.files.length;
+  updateStatCards();
+  renderTypeChart();
+  setStatus('done','READY');
+  addLog(`Demo: ${S.files.length} sample files loaded`,'warn');
+}
+
+function renderFileTree() {
+  const c = document.getElementById('fileTree');
+  if (!S.files.length) { c.innerHTML='<div class="es"><div class="ei">📂</div><p>No files found</p></div>'; return; }
+  const dirs = {};
+  S.files.forEach((f,i)=>{
+    const parts = f.path.replace(/\\/g,'/').split('/');
+    const dir = parts.slice(0,-1).join('/') || 'Root';
+    if (!dirs[dir]) dirs[dir]=[];
+    dirs[dir].push({...f,idx:i});
+  });
+  let html='';
+  for (const [dir,files] of Object.entries(dirs)) {
+    const lbl = dir.split('/').pop()||dir;
+    html+=`<div class="ti dir" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
+      <span style="font-size:14px;">📁</span><span class="nm">${lbl}</span><span class="badge">${files.length}</span></div>
+    <div class="ti-indent">`;
+    files.forEach(f=>{
+      html+=`<div class="ti file" id="fi-${f.idx}">
+        <input type="checkbox" class="fcb" data-i="${f.idx}" onchange="onFileCb()">
+        <span style="font-size:14px;">${f.icon}</span><span class="nm">${f.name}</span>
+        <span style="font-size:10px;color:var(--text3);flex-shrink:0;margin-left:auto;">${fmtSz(f.size)}</span>
+      </div>`;
+    });
+    html+='</div>';
+  }
+  c.innerHTML=html;
+  onFileCb();
+}
+
+function selAllFiles(v) {
+  document.querySelectorAll('.fcb').forEach(cb=>cb.checked=v);
+  document.getElementById('masterCb').checked=v;
+  onFileCb();
+}
+
+function onFileCb() {
+  const all=document.querySelectorAll('.fcb'), sel=document.querySelectorAll('.fcb:checked');
+  document.getElementById('selLbl').textContent=`${sel.length} of ${all.length} selected`;
+  const m=document.getElementById('masterCb');
+  m.indeterminate=sel.length>0&&sel.length<all.length;
+  m.checked=sel.length===all.length&&all.length>0;
+}
+
+function filterExp(q) {
+  const l=q.toLowerCase();
+  document.querySelectorAll('.ti.file').forEach(el=>{
+    el.style.display=(!q||el.querySelector('.nm')?.textContent.toLowerCase().includes(l))?'':'none';
+  });
+}
+
+function sendToQ() {
+  const cbs=document.querySelectorAll('.fcb:checked');
+  if (!cbs.length){toast('Select files first using the checkboxes','warn');return;}
+  let n=0;
+  cbs.forEach(cb=>{
+    const f=S.files[parseInt(cb.dataset.i)];
+    if (f&&!S.queue.find(q=>q.path===f.path)){S.queue.push({...f,status:'queued',selected:true});n++;}
+  });
+  renderQ();
+  showP('analysis');
+  aTabs('queue');
+  toast(`${n} file(s) added to analysis queue`,'success');
+  addLog(`${n} files queued for analysis`,'info');
+}
+
+// ================================================================
+// ANALYSIS
+// ================================================================
+function renderQ() {
+  document.getElementById('qBadge').textContent=S.queue.length;
+  const el=document.getElementById('qList');
+  if (!S.queue.length){el.innerHTML='<div class="es"><div class="ei">🔬</div><p>No files in queue</p></div>';updateQSel();return;}
+  el.innerHTML=S.queue.map((f,i)=>{
+    const sc=f.status==='done'?'var(--green2)':f.status==='analyzing'?'var(--accent2)':f.status==='error'?'var(--red)':'var(--text3)';
+    const fb=f.fallback?'<span style="font-size:10px;color:var(--yellow);" title="Heuristic fallback used">⚠ heuristic</span>':'';
+    return `<div class="ri">
+      <input type="checkbox" ${f.selected?'checked':''} onchange="S.queue[${i}].selected=this.checked;updateQSel()">
+      <span class="fi">${f.icon}</span>
+      <div class="finfo"><div class="fn">${f.name}</div><div class="fp">${f.path}</div></div>
+      <span style="font-size:10px;color:var(--text3);flex-shrink:0;">${fmtSz(f.size)}</span>
+      ${fb}
+      <span style="padding:2px 8px;border-radius:4px;font-size:10px;background:${sc}22;color:${sc};flex-shrink:0;">${f.status}</span>
+    </div>`;
+  }).join('');
+  updateQSel();
+}
+
+function updateQSel() {
+  const s=S.queue.filter(f=>f.selected).length;
+  document.getElementById('qSelLbl').textContent=`${s} selected`;
+  const m=document.getElementById('qMaster');
+  m.indeterminate=s>0&&s<S.queue.length; m.checked=s===S.queue.length&&S.queue.length>0;
+}
+
+function qSelAll(v){S.queue.forEach(f=>f.selected=v);renderQ();}
+
+function filterQ(q) {
+  const l=q.toLowerCase();
+  document.querySelectorAll('#qList .ri').forEach((el,i)=>{
+    const f=S.queue[i];
+    el.style.display=(!q||f.name.toLowerCase().includes(l))?'':'none';
+  });
+}
+
+function clearQ(){S.queue=[];S.results=[];renderQ();document.getElementById('rList').innerHTML='<div class="es"><div class="ei">📋</div><p>No results yet</p></div>';document.getElementById('prevTree').innerHTML='<div class="es"><div class="ei">🗂</div><p>Run analysis to see plan</p></div>';document.getElementById('qBadge').textContent='0';document.getElementById('rBadge').textContent='0';}
+
+async function runAnalysis() {
+  const toRun = S.queue.filter(f=>f.selected&&f.status!=='done');
+  if (!toRun.length){toast('No files selected in queue','warn');return;}
+
+  const provider = document.getElementById('aiProvider').value;
+  const model    = document.getElementById('aiModel').value;
+  const prompt   = document.getElementById('sysPrompt').value;
+  const apiKey   = document.getElementById('apiKey').value.trim();
+  const ollamaUrl= document.getElementById('ollamaUrl').value.trim();
+
+  if (!S.serverOnline) {
+    toast('Server offline — using heuristic fallback for all files','warn');
+    addLog('Server offline: using filename-based heuristic classification','warn');
+    for (const qf of toRun) {
+      qf.status='analyzing'; renderQ();
+      await sleep(80);
+      const res = heuristicClassify(qf);
+      qf.status='done'; qf.fallback=true;
+      S.results=S.results.filter(r=>r.file.path!==qf.path);
+      S.results.push({file:qf,...res,fallback:true});
+      addLog(`[heuristic] ${qf.name} → ${res.category}`,'warn');
+      renderQ();
+    }
+    finishAnalysis();
+    return;
+  }
+
+  // Route ALL AI calls through the backend server (no CORS issues)
+  setStatus('running','ANALYZING');
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('runBtn').textContent='⏳ Analyzing…';
+  addLog(`Starting analysis: ${toRun.length} files · ${provider} · ${model}`,'ai');
+
+  // Batch call to server
+  try {
+    const r = await fetch(`${API}/api/analyze`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        files: toRun.map(f=>({path:f.path,name:f.name,type:f.type,size:f.size,modified:f.modified})),
+        provider, model,
+        system_prompt: prompt,
+        max_tokens: parseInt(document.getElementById('maxTok').value)||1000,
+        temperature: parseFloat(document.getElementById('tempLbl').textContent)||0.3,
+        ollama_url: ollamaUrl,
+        api_key: apiKey,
+      })
+    });
+    if (!r.ok) throw new Error(`Server error ${r.status}`);
+    const data = await r.json();
+
+    // Map results back to queue files
+    data.results.forEach(res=>{
+      const qf = toRun.find(f=>f.path===res.file.path);
+      if (qf) {
+        qf.status = res.analysis ? 'done' : 'error';
+        qf.fallback = res.fallback||false;
+        if (res.analysis) {
+          S.results=S.results.filter(r=>r.file.path!==qf.path);
+          S.results.push({file:qf,...res.analysis,fallback:res.fallback});
+          S.stats.analyzed++;S.stats.categorized++;
+          const m = res.fallback ? '[heuristic]' : '[ai]';
+          addLog(`${m} ${qf.name} → [${res.analysis.category}] #${(res.analysis.tags||[]).join(' #')}`,'success');
+        } else {
+          addLog(`✗ ${qf.name}: ${res.error||'unknown error'}`,'error');
+        }
+      }
+    });
+  } catch(e) {
+    addLog(`Analysis request failed: ${e.message} — falling back to heuristic`,'error');
+    for (const qf of toRun) {
+      if (qf.status!=='done') {
+        const res=heuristicClassify(qf);
+        qf.status='done';qf.fallback=true;
+        S.results=S.results.filter(r=>r.file.path!==qf.path);
+        S.results.push({file:qf,...res,fallback:true});
+        addLog(`[heuristic] ${qf.name} → ${res.category}`,'warn');
+      }
+    }
+  }
+  finishAnalysis();
+}
+
+function finishAnalysis() {
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').textContent='▶ Run Analysis';
+  document.getElementById('rBadge').textContent=S.results.length;
+  setStatus('done','DONE');
+  renderQ();
+  renderResults();
+  renderAnalysisPreview();
+  loadAnalyzedToOrg();
+  updateStatCards();
+  toast(`Analysis complete — ${S.results.length} file(s) categorized`,'success');
+  addLog(`Analysis done. ${S.results.length} files processed.`,'success');
+}
+
+// Pure-JS heuristic fallback (no server, no AI needed)
+function heuristicClassify(file) {
+  const name=file.name.toLowerCase(), ext=(file.type||'').toLowerCase();
+  const ftypes={'pdf':'Documents','doc':'Documents','docx':'Documents','txt':'Documents','md':'Documents',
+    'xls':'Spreadsheets','xlsx':'Spreadsheets','csv':'Spreadsheets',
+    'ppt':'Presentations','pptx':'Presentations',
+    'jpg':'Images','jpeg':'Images','png':'Images','gif':'Images','svg':'Images','webp':'Images',
+    'mp4':'Videos','avi':'Videos','mov':'Videos','mkv':'Videos',
+    'mp3':'Audio','wav':'Audio','flac':'Audio',
+    'py':'Code','js':'Code','ts':'Code','html':'Code','css':'Code','sql':'Code','sh':'Code','bat':'Code',
+    'zip':'Archives','tar':'Archives','gz':'Archives','7z':'Archives','rar':'Archives',
+  };
+  let cat=ftypes[ext]||'Other', sub='';
+  const kws=[
+    ['invoice',['Finance','Invoices']],['receipt',['Finance','Receipts']],['tax',['Finance','Tax']],
+    ['budget',['Finance','Budgets']],['report',['Work Documents','Reports']],
+    ['contract',['Work Documents','Contracts']],['proposal',['Work Documents','Proposals']],
+    ['meeting',['Work Documents','Meetings']],['notes',['Work Documents','Notes']],
+    ['resume',['Personal','Resume']],['photo',['Images','Photos']],['backup',['Archives','Backups']],
+    ['schema',['Code','Database']],['readme',['Code','Documentation']],
+  ];
+  let kw1=ext||'file';
+  for (const [kw,[kcat,ksub]] of kws) {
+    if (name.includes(kw)){cat=kcat;sub=ksub;kw1=kw;break;}
+  }
+  const ym=name.match(/(20\d{2})/);
+  const year=ym?ym[1]:'';
+  const tags=[kw1,cat.toLowerCase().split(' ')[0],year||ext||'other'].filter(Boolean).slice(0,3);
+  while(tags.length<3)tags.push(ext||'file');
+  const sp=sub?`${cat}/${sub}${year?'/'+year:''}`:cat+(year?'/'+year:'');
+  return {category:cat,subcategory:sub,tags:[...new Set(tags)].slice(0,3),suggested_path:sp,confidence:0.45,method:'heuristic'};
+}
+
+function renderResults() {
+  const el=document.getElementById('rList');
+  if (!S.results.length){el.innerHTML='<div class="es"><div class="ei">📋</div><p>No results yet</p></div>';return;}
+  el.innerHTML=S.results.map(r=>{
+    const cat=S.categories.find(c=>c.name.toLowerCase()===(r.category||'').toLowerCase())||{color:'#64748b'};
+    const fb=r.fallback?'<span style="font-size:10px;color:var(--yellow);margin-left:4px;" title="Heuristic fallback — no AI was used">⚠ heuristic</span>':'';
+    return `<div class="ri">
+      <span class="fi">${r.file.icon}</span>
+      <div class="finfo">
+        <div class="fn">${r.file.name}${fb}</div>
+        <div class="fp">${r.file.path}</div>
+        <div class="fc">
+          <span class="tag" style="border-color:${cat.color};color:${cat.color};background:${cat.color}22;">${r.category}</span>
+          ${r.subcategory?`<span class="tag" style="border-color:var(--border);color:var(--text3);">${r.subcategory}</span>`:''}
+          ${(r.tags||[]).map(t=>`<span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);">#${t}</span>`).join('')}
+        </div>
+        <div class="dp2">${r.suggested_path}/${r.file.name}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-size:14px;font-weight:700;color:${r.confidence>=0.7?'var(--green2)':'var(--yellow)'};">${Math.round((r.confidence||0)*100)}%</div>
+        <div style="font-size:10px;color:var(--text3);">confidence</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAnalysisPreview() {
+  const dest=document.getElementById('destRoot').value||'C:\\Organized';
+  const el=document.getElementById('prevTree');
+  if (!S.results.length)return;
+  const tree={};
+  S.results.forEach(r=>{
+    const p=r.suggested_path||r.category||'Unsorted';
+    if(!tree[p])tree[p]=[];
+    tree[p].push({name:r.file.name,fallback:r.fallback});
+  });
+  let html=`<div class="tree-preview"><div class="tree-dir" style="margin-bottom:8px;">📁 ${dest}</div>`;
+  for(const[path,files]of Object.entries(tree)){
+    html+=`<div style="margin-left:20px;"><span class="tree-dir">📁 ${path}</span>\n`;
+    files.forEach(f=>{
+      html+=`<div style="margin-left:40px;" class="tree-file ${f.fallback?'fallback':''}">📄 ${f.name}${f.fallback?' ⚠':''}</div>\n`;
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function sendToOrg(){loadAnalyzedToOrg();showP('organize');}
+
+function exportPlan() {
+  const dest=document.getElementById('destRoot').value||'C:\\Organized';
+  const lines=S.results.map(r=>`${r.file.path}  →  ${dest}\\${r.suggested_path}\\${r.file.name}`);
+  dlTxt('organization_plan.txt',`AI File Organizer Plan\n${new Date().toLocaleString()}\n\n`+lines.join('\n'));
+  toast('Plan exported','success');
+}
+
+// ================================================================
+// ORGANIZE
+// ================================================================
+function structChange() {
+  document.getElementById('custTplG').style.display=document.getElementById('structMode').value==='custom'?'block':'none';
+}
+
+function loadAllToOrg() {
+  if(!S.files.length){toast('Scan files first','warn');return;}
+  S.pending=S.files.map(f=>{
+    const r=S.results.find(x=>x.file.path===f.path);
+    return {file:f,category:r?.category||'Unsorted',suggested_path:r?.suggested_path||'Unsorted',tags:r?.tags||[],selected:true};
+  });
+  renderPending();
+  toast(`${S.pending.length} files loaded`,'info');
+}
+
+function loadAnalyzedToOrg() {
+  if(!S.results.length){if(S.pending.length===0)toast('Run analysis first','warn');return;}
+  S.pending=S.results.map(r=>({file:r.file,category:r.category,suggested_path:r.suggested_path,tags:r.tags||[],selected:true}));
+  renderPending();
+  document.getElementById('pendBadge').textContent=S.pending.length;
+}
+
+function renderPending() {
+  document.getElementById('pendBadge').textContent=S.pending.length;
+  const dest=document.getElementById('orgDest').value||'C:\\Organized';
+  const sm=document.getElementById('structMode').value;
+  const el=document.getElementById('pendList');
+  if(!S.pending.length){el.innerHTML='<div class="es"><div class="ei">⏳</div><p>Click "Load Analyzed" or "Load All Scanned" above</p></div>';updateOrgSel();return;}
+  el.innerHTML=S.pending.map((op,i)=>{
+    const sp=resolveStructPath(op,sm);
+    const dp=`${dest}\\${sp}\\${op.file.name}`;
+    const tags=(op.tags||[]).map(t=>`<span class="tag" style="border-color:var(--border2);color:var(--accent2);font-size:10px;">#${t}</span>`).join('');
+    return `<div class="ri" id="pnd-${i}">
+      <input type="checkbox" ${op.selected?'checked':''} onchange="S.pending[${i}].selected=this.checked;updateOrgSel()">
+      <span class="fi">${op.file.icon}</span>
+      <div class="finfo">
+        <div class="fn">${op.file.name}</div>
+        <div class="fp">${op.file.path}</div>
+        <div class="fc" style="margin-top:3px;"><span class="tag" style="border-color:var(--border);color:var(--text3);font-size:10px;">${op.category}</span>${tags}</div>
+        <div class="dp2">${dp}</div>
+      </div>
+    </div>`;
+  }).join('');
+  updateOrgSel();
+}
+
+function resolveStructPath(op, sm) {
+  if (sm==='category') return op.category||'Unsorted';
+  if (sm==='type') {
+    const ft=S.fileTypes||{};
+    const ext=(op.file.type||'').toLowerCase();
+    for(const[cat,info]of Object.entries(ft)){if((info.extensions||[]).includes(ext))return cat;}
+    return 'Other';
+  }
+  if (sm==='date') {
+    const mt=op.file.modified;
+    if(mt){const d=new Date(mt*1000);return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;}
+    return 'Unknown Date';
+  }
+  if (sm==='custom') {
+    const tpl=document.getElementById('custTpl').value||'{category}/{filename}';
+    const mt=op.file.modified?new Date(op.file.modified*1000):new Date();
+    return tpl
+      .replace('{category}',op.category||'Unsorted')
+      .replace('{year}',mt.getFullYear())
+      .replace('{month}',String(mt.getMonth()+1).padStart(2,'0'))
+      .replace('{type}',op.file.type||'other')
+      .replace('{filename}',op.file.name);
+  }
+  return op.suggested_path||op.category||'Unsorted'; // 'ai'
+}
+
+function updateOrgSel() {
+  const s=S.pending.filter(p=>p.selected).length;
+  document.getElementById('orgSelLbl').textContent=`${s} selected`;
+  const m=document.getElementById('orgMaster');
+  m.indeterminate=s>0&&s<S.pending.length; m.checked=s===S.pending.length&&S.pending.length>0;
+}
+
+function orgSelAll(v){S.pending.forEach(p=>p.selected=v);renderPending();}
+
+function filterOrg(q) {
+  const l=q.toLowerCase();
+  document.querySelectorAll('#pendList .ri').forEach((el,i)=>{
+    const op=S.pending[i];
+    el.style.display=(!q||op.file.name.toLowerCase().includes(l)||(op.category||'').toLowerCase().includes(l))?'':'none';
+  });
+}
+
+function refreshPreview() {
+  renderPending();
+  const sm=document.getElementById('structMode').value;
+  const dest=document.getElementById('orgDest').value||'C:\\Organized';
+  const el=document.getElementById('structPrev');
+  if(!S.pending.length){el.innerHTML='<div class="es"><div class="ei">🗂</div><p>Load files first</p></div>';return;}
+
+  // Build tree
+  const tree={};
+  S.pending.forEach(op=>{
+    if(!op.selected)return;
+    const sp=resolveStructPath(op,sm);
+    const parts=sp.split('/').filter(Boolean);
+    let node=tree;
+    for(const pt of parts){
+      if(!node[pt])node[pt]={_files:[],_sub:{}};
+      node=node[pt]._sub;
+    }
+    const leaf=parts.reduce((n,pt)=>n[pt],tree);
+    if(leaf)leaf._files.push(op.file.name);
+  });
+
+  function renderNode(node, depth, pathSoFar) {
+    let html='';
+    for(const[name,val]of Object.entries(node)){
+      const indent='  '.repeat(depth);
+      const fullPath=`${dest}\\${pathSoFar?pathSoFar+'\\':''}${name}`;
+      html+=`<div style="margin-left:${depth*20}px;" class="tree-dir">📁 ${name} <span style="color:var(--text3);font-size:10px;">${fullPath}</span></div>`;
+      if(val._files){
+        val._files.forEach(f=>{ html+=`<div style="margin-left:${(depth+1)*20}px;" class="tree-file">📄 ${f}</div>`; });
+      }
+      if(val._sub)html+=renderNode(val._sub,depth+1,pathSoFar?`${pathSoFar}\\${name}`:name);
+    }
+    return html;
+  }
+  el.innerHTML=`<div class="tree-preview"><div class="tree-dir" style="font-size:13px;margin-bottom:10px;color:var(--accent2);">📁 ${dest}</div>${renderNode(tree,0,'')}</div>`;
+}
+
+async function execOrg() {
+  const sel=S.pending.filter(p=>p.selected);
+  if(!sel.length){toast('Select files to organize','warn');return;}
+  const isDry=document.getElementById('dryRun').checked;
+  const mode=document.getElementById('opMode').value;
+  const dest=document.getElementById('orgDest').value||'C:\\Organized';
+  const sm=document.getElementById('structMode').value;
+
+  document.getElementById('execBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div class="sc"><div class="lbl">Files</div><div class="val hl">${sel.length}</div></div>
+      <div class="sc"><div class="lbl">Operation</div><div class="val" style="font-size:15px;">${mode==='copy'?'📋 Copy':'✂ Move'}</div></div>
+      <div class="sc"><div class="lbl">Destination</div><div class="val" style="font-size:11px;word-break:break-all;">${dest}</div></div>
+      <div class="sc"><div class="lbl">Mode</div><div class="val" style="font-size:14px;color:${isDry?'var(--yellow)':'var(--green2)'};">${isDry?'🔍 DRY RUN':'⚡ LIVE'}</div></div>
+    </div>
+    ${!isDry?`<div class="wb">⚠ This will actually ${mode} files on your system! Directories will be created automatically.</div>`:''}`;
+  openM('mExec');
+}
+
+async function doExec() {
+  closeM('mExec');
+  const sel=S.pending.filter(p=>p.selected);
+  const isDry=document.getElementById('dryRun').checked;
+  const mode=document.getElementById('opMode').value;
+  const dest=document.getElementById('orgDest').value||'C:\\Organized';
+  const sm=document.getElementById('structMode').value;
+  const conflict=document.getElementById('conflictMode').value;
+  const fill=document.getElementById('orgFill');
+  const prog=document.getElementById('orgProg');
+
+  setStatus('running','ORGANIZING');
+  addLog(`${isDry?'[DRY RUN] ':''}${mode} ${sel.length} files → ${dest}`,'info');
+
+  const done=[],failed=[];
+
+  if (S.serverOnline && !isDry) {
+    // Server handles actual file operations (creates dirs, copies/moves)
+    try {
+      const ops=sel.map(op=>({
+        file:{path:op.file.path,name:op.file.name,type:op.file.type,modified:op.file.modified},
+        category:op.category,
+        suggested_path:resolveStructPath(op,sm),
+      }));
+      const r=await fetch(`${API}/api/organize`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({operations:ops,operation:mode,dry_run:isDry,dest_root:dest,conflict,struct_mode:sm})});
+      if(!r.ok)throw new Error(`Server error ${r.status}`);
+      const data=await r.json();
+      data.results.forEach((res,i)=>{
+        fill.style.width=Math.round(((i+1)/data.results.length)*100)+'%';
+        prog.textContent=`${mode==='copy'?'Copying':'Moving'}: ${sel[i]?.file.name||''} (${i+1}/${sel.length})`;
+        if(res.status==='success'||res.status==='dry_run'){
+          done.push({...sel[i],destPath:res.destination});
+          addLog(`✓ ${sel[i]?.file.name} → ${res.destination}`,'success');
+        } else {
+          failed.push(sel[i]);
+          addLog(`✗ ${sel[i]?.file.name}: ${res.error}`,'error');
+        }
+      });
+    } catch(e) {
+      addLog('Organize server error: '+e.message,'error');
+      toast('Server error during organize: '+e.message,'error');
+    }
+  } else {
+    // Simulate (dry run or server offline)
+    for(let i=0;i<sel.length;i++){
+      const op=sel[i];
+      fill.style.width=Math.round(((i+1)/sel.length)*100)+'%';
+      const sp=resolveStructPath(op,sm);
+      const dp=`${dest}\\${sp}\\${op.file.name}`;
+      prog.textContent=`${isDry?'[DRY] ':''}${mode==='copy'?'Copying':'Moving'}: ${op.file.name} (${i+1}/${sel.length})`;
+      addLog(`${isDry?'[DRY] ':''}${mode}: ${op.file.name} → ${dp}`,'success');
+      done.push({...op,destPath:dp});
+      await sleep(40);
+    }
+  }
+
+  fill.style.width='100%';
+  prog.textContent=`✓ ${isDry?'Dry run':'Operation'} complete: ${done.length} ${mode==='copy'?'copied':'moved'}${failed.length?`, ${failed.length} failed`:''}`;
+  S.pending=S.pending.filter(p=>!p.selected);
+  renderPending();
+  document.getElementById('compBadge').textContent=done.length;
+  document.getElementById('failBadge').textContent=failed.length;
+
+  if(done.length){
+    document.getElementById('compList').innerHTML=done.map(op=>`
+      <div class="ri"><span class="fi">${op.file.icon}</span>
+        <div class="finfo"><div class="fn">${op.file.name}</div><div class="dp2">${op.destPath}</div></div>
+        <span style="color:var(--green2);font-size:11px;">✓ ${mode==='copy'?'Copied':'Moved'}</span></div>`).join('');
+  }
+  if(failed.length){
+    document.getElementById('failList').innerHTML=failed.map(op=>`
+      <div class="ri"><span class="fi">${op.file.icon}</span>
+        <div class="finfo"><div class="fn">${op.file.name}</div></div>
+        <span style="color:var(--red);font-size:11px;">✗ Failed</span></div>`).join('');
+  }
+
+  S.stats.moved+=done.length;
+  updateStatCards();
+  setStatus('done','DONE');
+  toast(`${isDry?'Dry run':'Done'}: ${done.length} file(s)`,'success');
+  addOpsToTable(done,mode,isDry);
+}
+
+function addOpsToTable(ops,mode,dryRun) {
+  const b=document.getElementById('opsBody');
+  if(b.querySelector('td[colspan]'))b.innerHTML='';
+  const t=new Date().toLocaleTimeString();
+  b.insertAdjacentHTML('afterbegin',ops.slice(0,10).map(op=>`
+    <tr><td>${t}</td><td>${op.file.name}</td><td>${dryRun?'[DRY] ':''}${mode}</td>
+    <td style="color:var(--accent2);">${op.destPath||''}</td><td style="color:var(--green2);">✓</td></tr>`).join(''));
+}
+
+// ================================================================
+// CATEGORIES
+// ================================================================
+function initDefaultCategories() {
+  S.categories=[
+    {id:1,name:'Work Documents', color:'#3b82f6',kws:['report','invoice','proposal','meeting','project','budget','contract','memo'],path:'Work/Documents'},
+    {id:2,name:'Personal',       color:'#10b981',kws:['personal','diary','journal','family','travel','vacation','health','medical'],path:'Personal'},
+    {id:3,name:'Finance',        color:'#f59e0b',kws:['tax','bank','receipt','expense','payment','financial','statement','insurance'],path:'Finance'},
+    {id:4,name:'Code & Development',color:'#8b5cf6',kws:['code','script','function','class','api','database','config','readme','schema'],path:'Development'},
+    {id:5,name:'Media & Creative',color:'#ec4899',kws:['photo','image','video','music','art','design','illustration','audio'],path:'Media'},
+    {id:6,name:'Reference',      color:'#06b6d4',kws:['reference','tutorial','guide','documentation','manual','notes'],path:'Reference'},
+    {id:7,name:'Archive',        color:'#64748b',kws:['old','backup','archive','deprecated','legacy'],path:'Archive'},
+  ];
+}
+
+function renderCatList() {
+  document.getElementById('catList').innerHTML=S.categories.map((c,i)=>`
+    <div class="ti" onclick="showCatDet(${i})" style="border-left:3px solid ${c.color};padding-left:10px;">
+      <span style="font-size:13px;">🏷</span><span class="nm">${c.name}</span><span class="badge">${c.count||0}</span>
+    </div>`).join('');
+}
+
+function showCatDet(i) {
+  const c=S.categories[i];
+  document.querySelectorAll('#catList .ti').forEach((el,j)=>el.classList.toggle('sel',j===i));
+  document.getElementById('catDetail').innerHTML=`
+    <div style="padding:16px;">
+      <div class="row sb" style="margin-bottom:16px;">
+        <div><div style="font-family:var(--sans);font-size:16px;font-weight:700;color:${c.color};">${c.name}</div>
+          <div style="font-size:11px;color:var(--text3);">Path: ${c.path}</div></div>
+        <button class="btn btn-d btn-sm" onclick="deleteCat(${i})">🗑 Delete</button>
+      </div>
+      <div class="fg"><label>Keywords</label>
+        <div class="tc-wrap">${c.kws.map((kw,ki)=>`
+          <span class="tag" style="border-color:${c.color};color:${c.color};background:${c.color}22;">
+            ${kw}<span class="tr" onclick="removeCatKw(${i},${ki})">×</span></span>`).join('')}
+        </div>
+        <div class="ci">
+          <input type="text" id="catKI${i}" placeholder="Add keyword…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatKwI(${i});}">
+          <button class="btn btn-g btn-sm" onclick="addCatKwI(${i})">Add</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function addCatKwI(i) {
+  const v=document.getElementById(`catKI${i}`).value.trim();
+  if(!v)return;
+  S.categories[i].kws.push(v);
+  document.getElementById(`catKI${i}`).value='';
+  showCatDet(i);
+}
+
+function removeCatKw(ci,ki){S.categories[ci].kws.splice(ki,1);showCatDet(ci);}
+function deleteCat(i){if(!confirm(`Delete "${S.categories[i].name}"?`))return;S.categories.splice(i,1);renderCatList();document.getElementById('catDetail').innerHTML='<div class="es"><div class="ei">🏷</div><p>Select a category</p></div>';}
+async function autoGenCats(){toast('Generating categories…','info');await sleep(600);[{id:Date.now(),name:'Research Papers',color:'#06b6d4',kws:['research','study','academic','paper','journal'],path:'Research'},{id:Date.now()+1,name:'Templates',color:'#84cc16',kws:['template','starter','sample','example'],path:'Templates'}].forEach(c=>{if(!S.categories.find(x=>x.name===c.name))S.categories.push(c);});renderCatList();toast('2 categories added','success');}
+
+let _newCatKws=[];
+function openAddCatM(){_newCatKws=[];S.color='#3b82f6';document.getElementById('newCatName').value='';document.getElementById('newCatPath').value='';document.getElementById('newCatKwIn').value='';document.getElementById('newCatKwEl').innerHTML='';document.querySelectorAll('#colorPicker .sw').forEach((s,i)=>s.classList.toggle('sel',i===0));openM('mAddCat');}
+function addCatKw(){const v=document.getElementById('newCatKwIn').value.trim();if(!v)return;_newCatKws.push(v);document.getElementById('newCatKwIn').value='';renderNewCatKws();}
+function renderNewCatKws(){document.getElementById('newCatKwEl').innerHTML=_newCatKws.map((kw,i)=>`<span class="tag" style="border-color:var(--accent);color:var(--accent2);background:rgba(59,130,246,.1);">${kw}<span class="tr" onclick="_newCatKws.splice(${i},1);renderNewCatKws()">×</span></span>`).join('');}
+function saveCat(){const n=document.getElementById('newCatName').value.trim();if(!n){toast('Name required','error');return;}S.categories.push({id:Date.now(),name:n,color:S.color,kws:[..._newCatKws],path:document.getElementById('newCatPath').value||n,count:0});renderCatList();closeM('mAddCat');toast(`Category "${n}" created`,'success');}
+function pickC(el){document.querySelectorAll('#colorPicker .sw').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');S.color=el.dataset.c;}
+
+// ================================================================
+// TAGS
+// ================================================================
+async function loadTagsFromServer() {
+  if (!S.serverOnline) return;
+  try {
+    const r=await fetch(`${API}/api/tags`);
+    if(r.ok){const d=await r.json();S.tags=d.tags||[];}
+  } catch(e){}
+  renderTagGrid();
+  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+}
+
+async function saveTagsToServer() {
+  if(!S.serverOnline){toast('Server offline — tags saved locally only','warn');}
+  else {
+    try {
+      await fetch(`${API}/api/tags`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tags:S.tags})});
+    } catch(e){toast('Could not save to server','error');return;}
+  }
+  toast('Tags saved','success');
+}
+
+function addTag() {
+  const v=document.getElementById('newTagInput').value.trim().toLowerCase().replace(/\s+/g,'-');
+  if(!v){toast('Enter a tag name','error');return;}
+  if(S.tags.includes(v)){toast('Tag already exists','warn');return;}
+  S.tags.push(v);
+  document.getElementById('newTagInput').value='';
+  renderTagGrid();
+  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+}
+
+function bulkImportTags() {
+  const lines=document.getElementById('bulkTagInput').value.split('\n').map(l=>l.trim().toLowerCase().replace(/\s+/g,'-')).filter(Boolean);
+  let n=0;
+  lines.forEach(t=>{if(!S.tags.includes(t)){S.tags.push(t);n++;}});
+  document.getElementById('bulkTagInput').value='';
+  renderTagGrid();
+  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+  toast(`${n} tags imported`,'success');
+}
+
+function renderTagGrid() {
+  const el=document.getElementById('tagGrid');
+  const q=(document.getElementById('tagSearch')?.value||'').toLowerCase();
+  const tags=S.tags.filter(t=>!q||t.includes(q));
+  if(!tags.length){el.innerHTML='<div class="es" style="padding:24px;"><p>No tags yet. Add some above.</p></div>';return;}
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;">${tags.map(t=>`
+    <span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);padding:4px 10px;cursor:default;">
+      #${t}
+      <span class="tr" onclick="deleteTag('${t}')">×</span>
+    </span>`).join('')}</div>`;
+  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+}
+
+function filterTags(q){renderTagGrid();}
+function deleteTag(t){S.tags=S.tags.filter(x=>x!==t);renderTagGrid();document.getElementById('tagCount').textContent=`${S.tags.length} tags`;}
+function clearAllTags(){if(!confirm('Delete all tags?'))return;S.tags=[];renderTagGrid();document.getElementById('tagCount').textContent='0 tags';}
+
+// ================================================================
+// SETTINGS
+// ================================================================
+function initProviders() {
+  S.providers=[
+    {id:'anthropic',name:'Anthropic (Claude)',type:'anthropic',endpoint:'https://api.anthropic.com/v1/messages',api_key:'',models:['claude-sonnet-4-20250514','claude-opus-4-5','claude-haiku-4-5-20251001'],enabled:true},
+    {id:'openai',name:'OpenAI (GPT)',type:'openai',endpoint:'https://api.openai.com/v1/chat/completions',api_key:'',models:['gpt-4o','gpt-4-turbo','gpt-3.5-turbo'],enabled:true},
+    {id:'ollama',name:'Ollama (Local)',type:'ollama',endpoint:'http://localhost:11434',api_key:'',models:[],enabled:true},
+  ];
+  renderProviders();
+}
+
+function initFileTypes() {
+  S.fileTypes={
+    'Documents':{extensions:['pdf','doc','docx','txt','md','rtf','odt'],color:'#3b82f6'},
+    'Spreadsheets':{extensions:['xls','xlsx','csv','ods','numbers'],color:'#10b981'},
+    'Presentations':{extensions:['ppt','pptx','odp','key'],color:'#f59e0b'},
+    'Images':{extensions:['jpg','jpeg','png','gif','bmp','svg','webp','tiff'],color:'#ec4899'},
+    'Videos':{extensions:['mp4','avi','mov','mkv','wmv','flv','m4v'],color:'#8b5cf6'},
+    'Audio':{extensions:['mp3','wav','flac','aac','ogg','m4a','wma'],color:'#06b6d4'},
+    'Code':{extensions:['py','js','ts','jsx','tsx','html','css','json','sql','sh','bat','cs','cpp','java','go','rs','rb'],color:'#84cc16'},
+    'Archives':{extensions:['zip','tar','gz','7z','rar','bz2'],color:'#64748b'},
+  };
+  renderFileTypes();
+}
+
+function renderProviders() {
+  const el=document.getElementById('providerList');
+  if(!el)return;
+  el.innerHTML=S.providers.map((p,i)=>`
+    <div class="mi ${p.id===document.getElementById('aiProvider').value?'am':''}">
+      <div class="mdot" style="background:${p.enabled?'var(--green)':'var(--text3)'}"></div>
+      <div style="flex:1;">
+        <div style="font-size:12px;color:var(--text);font-weight:500;">${p.name}</div>
+        <div style="font-size:10px;color:var(--text3);">${p.type} · ${p.endpoint}</div>
+      </div>
+      <button class="btn btn-g btn-xs" onclick="editProvider(${i})">✏ Edit</button>
+      <button class="btn btn-d btn-xs" onclick="deleteProvider('${p.id}')">🗑</button>
+    </div>`).join('');
+}
+
+function openAddProviderM() {
+  document.getElementById('provModalTitle').textContent='Add Provider';
+  ['provId','provName','provEndpoint','provKey','provModels'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('provType').value='openai';
+  openM('mAddProvider');
+}
+
+function editProvider(i) {
+  const p=S.providers[i];
+  document.getElementById('provModalTitle').textContent='Edit Provider';
+  document.getElementById('provId').value=p.id;
+  document.getElementById('provName').value=p.name;
+  document.getElementById('provType').value=p.type;
+  document.getElementById('provEndpoint').value=p.endpoint;
+  document.getElementById('provKey').value='';
+  document.getElementById('provModels').value=(p.models||[]).join(', ');
+  openM('mAddProvider');
+}
+
+async function saveProvider() {
+  const id=document.getElementById('provId').value.trim().replace(/\s+/g,'-');
+  if(!id){toast('ID required','error');return;}
+  const p={id,name:document.getElementById('provName').value||id,type:document.getElementById('provType').value,
+    endpoint:document.getElementById('provEndpoint').value,api_key:document.getElementById('provKey').value,
+    models:document.getElementById('provModels').value.split(',').map(s=>s.trim()).filter(Boolean),enabled:true};
+  const idx=S.providers.findIndex(x=>x.id===id);
+  if(idx>=0)S.providers[idx]={...S.providers[idx],...p};
+  else S.providers.push(p);
+  if(S.serverOnline){try{await fetch(`${API}/api/config/provider`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});}catch(e){}}
+  renderProviders();
+  closeM('mAddProvider');
+  toast('Provider saved','success');
+}
+
+async function deleteProvider(id) {
+  if(!confirm(`Delete provider "${id}"?`))return;
+  S.providers=S.providers.filter(p=>p.id!==id);
+  if(S.serverOnline){try{await fetch(`${API}/api/config/provider/${id}`,{method:'DELETE'});}catch(e){}}
+  renderProviders();
+  toast('Provider deleted','info');
+}
+
+function renderFileTypes() {
+  const el=document.getElementById('ftypeList');
+  if(!el)return;
+  el.innerHTML=Object.entries(S.fileTypes).map(([name,info])=>`
+    <div class="mi" style="margin-bottom:6px;">
+      <div class="mdot" style="background:${info.color}"></div>
+      <div style="flex:1;">
+        <div style="font-size:12px;color:var(--text);font-weight:500;">${name}</div>
+        <div style="font-size:10px;color:var(--text3);">${(info.extensions||[]).join(', ')}</div>
+      </div>
+      <button class="btn btn-d btn-xs" onclick="deleteFt('${name}')">🗑</button>
+    </div>`).join('');
+}
+
+let _ftColor='#3b82f6';
+function openAddFtM(){document.getElementById('ftName').value='';document.getElementById('ftExts').value='';document.querySelectorAll('#ftColorPicker .sw').forEach((s,i)=>s.classList.toggle('sel',i===0));_ftColor='#3b82f6';openM('mAddFt');}
+function pickFtC(el){document.querySelectorAll('#ftColorPicker .sw').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');_ftColor=el.dataset.c;}
+function saveFt(){const n=document.getElementById('ftName').value.trim();if(!n){toast('Name required','error');return;}const exts=document.getElementById('ftExts').value.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);S.fileTypes[n]={extensions:exts,color:_ftColor};renderFileTypes();closeM('mAddFt');toast(`File type group "${n}" saved`,'success');}
+function deleteFt(n){if(!confirm(`Delete file type group "${n}"?`))return;delete S.fileTypes[n];renderFileTypes();}
+
+// PROVIDER CHANGE (keeps AI model tab in sync)
+function providerChanged() {
+  const p=document.getElementById('aiProvider').value;
+  document.getElementById('apiKeyRow').style.display=p==='ollama'?'none':'block';
+  document.getElementById('ollamaUrlAIRow').style.display=p==='ollama'?'block':'none';
+  document.getElementById('custEpRow').style.display=p==='custom'?'block':'none';
+  updateModelSelect();
+}
+
+function updateModelSelect() {
+  const p=document.getElementById('aiProvider').value;
+  const sel=document.getElementById('aiModel');
+  if(p==='ollama'){
+    if(S.ollamaModels.length){
+      sel.innerHTML=S.ollamaModels.map(m=>`<option value="${m.name}">${m.name}${m.size?' ('+fmtSz(m.size)+')':''}</option>`).join('');
+      if(S.activeOllamaModel)sel.value=S.activeOllamaModel;
+    } else {sel.innerHTML='<option value="">— Test Ollama connection first —</option>';}
+  } else {
+    const prov=S.providers.find(x=>x.id===p);
+    const models=prov?.models?.length?prov.models:(PROVIDER_MODELS[p]||[]);
+    sel.innerHTML=models.map(m=>`<option value="${m}">${m}</option>`).join('');
+  }
+}
+
+function syncOllamaUrl(from) {
+  const v=document.getElementById(from==='ai'?'aiOllamaUrl':'ollamaUrl').value;
+  document.getElementById(from==='ai'?'ollamaUrl':'aiOllamaUrl').value=v;
+}
+
+function toggleKey(){const e=document.getElementById('apiKey');e.type=e.type==='password'?'text':'password';}
+
+async function testAIConn() {
+  if(!S.serverOnline){toast('Server offline — cannot test connection','error');return;}
+  const key=document.getElementById('apiKey').value.trim();
+  if(!key){toast('Enter API key first','error');return;}
+  toast('Testing connection via server…','info');
+  try {
+    const r=await fetch(`${API}/api/analyze`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({files:[{path:'test',name:'test.txt',type:'txt',size:0}],
+        provider:document.getElementById('aiProvider').value,
+        model:document.getElementById('aiModel').value,
+        system_prompt:'Say: {"category":"test","subcategory":"","tags":["a","b","c"],"suggested_path":"test","confidence":1}',
+        api_key:key})});
+    const d=await r.json();
+    if(d.results?.[0]?.status==='success'){toast('✓ Connection OK','success');addLog('API test successful','success');}
+    else{toast('Test failed: '+(d.results?.[0]?.error||'unknown'),'error');}
+  } catch(e){toast('Test failed: '+e.message,'error');}
+}
+
+async function testOllamaAI(){syncOllamaUrl('ai');await testOllama();}
+
+async function testOllama() {
+  const url=(document.getElementById('ollamaUrl').value||'http://localhost:11434').replace(/\/$/,'');
+  document.getElementById('aiOllamaUrl').value=url;
+  const sts=document.getElementById('ollamaStatus');
+  const aiSts=document.getElementById('aiOllamaStatus');
+  sts.textContent='Testing…';sts.style.color='var(--text3)';
+
+  if(!S.serverOnline){
+    // Direct call — may fail due to CORS but worth trying
+    try {
+      const r=await fetch(`${url}/api/tags`,{signal:AbortSignal.timeout(5000)});
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const d=await r.json();
+      processOllamaModels(d.models||[],url,sts,aiSts);
+    } catch(e){
+      sts.textContent='✗ Not reachable — start Ollama and run server.py';sts.style.color='var(--red)';
+      toast('Ollama not reachable. Make sure Ollama is running and server.py is started.','error');
+    }
+    return;
+  }
+
+  // Route through server proxy (no CORS, no ollama.com)
+  try {
+    const r=await fetch(`${API}/api/ollama/tags?url=${encodeURIComponent(url)}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    processOllamaModels(d.models||[],url,sts,aiSts);
+  } catch(e) {
+    sts.textContent='✗ '+e.message;sts.style.color='var(--red)';
+    if(aiSts)aiSts.textContent='✗ Not connected';
+    toast('Ollama error: '+e.message,'error');
+  }
+}
+
+function processOllamaModels(models,url,sts,aiSts) {
+  S.ollamaModels=models.map(m=>({name:m.name,size:m.size}));
+  const msg=`✓ Connected — ${models.length} model(s)`;
+  sts.textContent=msg;sts.style.color='var(--green2)';
+  if(aiSts){aiSts.textContent=msg;aiSts.style.color='var(--green2)';}
+  renderOllamaModels(models);
+  if(document.getElementById('aiProvider').value==='ollama')updateModelSelect();
+  addLog(`Ollama connected at ${url} — models: ${models.map(m=>m.name).join(', ')||'none'}`,'success');
+  toast(`Ollama: ${models.length} model(s) found`,'success');
+}
+
+function renderOllamaModels(models) {
+  const el=document.getElementById('ollamaModelList');
+  if(!models.length){el.innerHTML='<div style="padding:10px;font-size:12px;color:var(--text3);">No models installed. Pull one below.</div>';return;}
+  el.innerHTML=models.map(m=>`
+    <div class="mi ${S.activeOllamaModel===m.name?'am':''}">
+      <div class="mdot"></div>
+      <div style="flex:1;font-size:12px;color:var(--text);">${m.name}</div>
+      <div style="font-size:11px;color:var(--text3);">${m.size?fmtSz(m.size):''}</div>
+      <button class="btn btn-p btn-sm" onclick="useOllamaModel('${m.name}')">Use ▶</button>
+      <button class="btn btn-d btn-xs" onclick="deleteOllamaModel('${m.name}')">🗑</button>
+    </div>`).join('');
+}
+
+function useOllamaModel(name) {
+  S.activeOllamaModel=name;
+  document.getElementById('aiProvider').value='ollama';
+  providerChanged();
+  const sel=document.getElementById('aiModel');
+  let opt=Array.from(sel.options).find(o=>o.value===name);
+  if(!opt){opt=new Option(name,name,true,true);sel.add(opt);}
+  sel.value=name;
+  renderOllamaModels(S.ollamaModels);
+  toast(`Using Ollama model: ${name}`,'success');
+  addLog(`AI → Ollama/${name}`,'info');
+  sTab('ai');
+}
+
+async function pullModel() {
+  const name=document.getElementById('newMdlName').value.trim();
+  if(!name){toast('Enter model name','error');return;}
+  const url=(document.getElementById('ollamaUrl').value||'http://localhost:11434').replace(/\/$/,'');
+  if(!S.serverOnline){toast('Server must be running to pull models','error');return;}
+  document.getElementById('pullWrap').style.display='block';
+  document.getElementById('pullFill').style.width='10%';
+  document.getElementById('pullStatus').textContent=`Pulling ${name} from Ollama…`;
+  addLog(`Pulling Ollama model: ${name}`,'ai');
+  try {
+    const r=await fetch(`${API}/api/ollama/pull`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:name,url})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    document.getElementById('pullFill').style.width='100%';
+    document.getElementById('pullStatus').textContent=`✓ Pull started — refreshing in 5s…`;
+    setTimeout(async()=>{await testOllama();document.getElementById('pullWrap').style.display='none';},5000);
+    toast(`Pulling ${name} — check Ollama terminal for progress`,'info');
+  } catch(e) {
+    document.getElementById('pullStatus').textContent=`✗ Failed: ${e.message}`;
+    document.getElementById('pullStatus').style.color='var(--red)';
+    toast('Pull failed: '+e.message,'error');
+  }
+}
+
+async function deleteOllamaModel(name) {
+  if(!confirm(`Delete Ollama model "${name}"?`))return;
+  const url=(document.getElementById('ollamaUrl').value||'http://localhost:11434').replace(/\/$/,'');
+  try {
+    await fetch(`${API}/api/ollama/delete`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:name,url})});
+    if(S.activeOllamaModel===name)S.activeOllamaModel=null;
+    await testOllama();
+    toast(`${name} deleted`,'info');
+  } catch(e){toast('Delete failed: '+e.message,'error');}
+}
+
+async function saveAllSettings() {
+  const cfg={
+    system_prompt:document.getElementById('sysPrompt').value,
+    max_tokens:parseInt(document.getElementById('maxTok').value)||1000,
+    temperature:parseFloat(document.getElementById('tempLbl').textContent)||0.3,
+    batch_size:parseInt(document.getElementById('batchSz').value)||5,
+    timeout:parseInt(document.getElementById('timeoutSec').value)||30,
+    port:parseInt(document.getElementById('cfgPort').value)||8765,
+    log_path:document.getElementById('cfgLogPath').value,
+    log_level:document.getElementById('cfgLogLevel').value,
+    max_preview_bytes:parseInt(document.getElementById('cfgPreviewBytes').value)||4096,
+    dest_root:document.getElementById('destRoot').value,
+    file_types:S.fileTypes,
+    providers:S.providers,
+    tags:S.tags,
+  };
+  if(S.serverOnline){
+    try{await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});}
+    catch(e){toast('Could not save to server','error');}
+  }
+  addLog('Settings saved','info');
+  toast('Settings saved','success');
+}
+
+function resetSettings() {
+  if(!confirm('Reset all settings?'))return;
+  document.getElementById('apiKey').value='';
+  document.getElementById('maxTok').value=1000;
+  document.getElementById('batchSz').value=5;
+  document.getElementById('tempSlider').value=0.3;
+  document.getElementById('tempLbl').textContent='0.3';
+  document.getElementById('sysPrompt').value=DEFAULT_PROMPT;
+  toast('Settings reset','info');
+}
+
+function resetPrompt(){document.getElementById('sysPrompt').value=DEFAULT_PROMPT;toast('Prompt reset','info');}
+function openPromptM(){document.getElementById('promptEl').textContent=document.getElementById('sysPrompt').value;openM('mPrompt');}
+
+async function loadDbStats() {
+  if(!S.serverOnline){document.getElementById('dbStatsBox').innerHTML='<em>Server offline</em>';return;}
+  try {
+    const r=await fetch(`${API}/api/db/stats`);
+    const d=await r.json();
+    document.getElementById('dbStatsBox').innerHTML=
+      `Path: ${d.path}<br>Size: ${fmtSz(d.size)}<br>Files: ${d.files}<br>Analysis records: ${d.analysis}<br>Operations: ${d.operations}<br>Categories: ${d.categories}`;
+    document.getElementById('dbPathEl').value=d.path||'';
+  } catch(e){document.getElementById('dbStatsBox').innerHTML='Error: '+e.message;}
+}
+
+function backupDb(){toast('Backup: copy the .db file from %APPDATA%\\AIFileOrganizer\\','info');}
+async function clearDb(){if(!confirm('Clear all database records?'))return;if(!S.serverOnline){toast('Server offline','error');return;}try{await fetch(`${API}/api/db/clear`,{method:'POST'});toast('Database cleared','warn');}catch(e){toast('Error: '+e.message,'error');}}
+
+// ================================================================
+// BROWSE MODAL
+// ================================================================
+function openBrowse(targetId) {
+  S.browseTarget=targetId;
+  const current=document.getElementById(targetId)?.value||'';
+  loadBrowse(current||'');
+  openM('mBrowse');
+}
+
+async function loadBrowse(path) {
+  if(!S.serverOnline){
+    // Show a simple text input hint when server is offline
+    document.getElementById('browseDirs').innerHTML='<div class="es" style="padding:20px;"><p>Start server.py to enable directory browsing.<br>Type the path manually in the input field.</p></div>';
+    document.getElementById('browseDrives').innerHTML='';
+    document.getElementById('browseCurrentPath').textContent=path||'(server offline)';
+    document.getElementById('browseSelected').textContent=path||'';
+    S.browseCurrent=path;
+    return;
+  }
+  try {
+    const r=await fetch(`${API}/api/browse?path=${encodeURIComponent(path)}`);
+    const d=await r.json();
+    S.browseCurrent=d.current;
+    document.getElementById('browseCurrentPath').textContent=d.current;
+    document.getElementById('browseSelected').textContent=d.current;
+    // Drives (Windows)
+    if(d.drives?.length){
+      document.getElementById('browseDrives').innerHTML=d.drives.map(dr=>`<div class="bdrive" onclick="loadBrowse('${dr.path}')">${dr.name}</div>`).join('');
+    }
+    // Dirs
+    document.getElementById('browseDirs').innerHTML=d.dirs.map(dr=>`
+      <div class="bdir" onclick="loadBrowse('${dr.path.replace(/\\/g,'\\\\')}')" title="${dr.path}">
+        📁 ${dr.name}
+      </div>`).join('')||'<div style="padding:10px;font-size:12px;color:var(--text3);">No subdirectories</div>';
+  } catch(e){
+    document.getElementById('browseDirs').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px;">Error: ${e.message}</div>`;
+  }
+}
+
+function browseUp() {
+  const parent=S.browseCurrent?S.browseCurrent.replace(/[\\/][^\\/]+[\\/]?$/,''):'';
+  if(parent)loadBrowse(parent);
+}
+
+function confirmBrowse() {
+  const target=document.getElementById(S.browseTarget);
+  if(target)target.value=S.browseCurrent;
+  closeM('mBrowse');
+  // Sync dest fields
+  if(S.browseTarget==='destRoot')document.getElementById('orgDest').value=S.browseCurrent;
+  if(S.browseTarget==='orgDest')document.getElementById('destRoot').value=S.browseCurrent;
+}
+
+// ================================================================
+// STATS
+// ================================================================
+async function loadStats() {
+  if(!S.serverOnline){updateStatCards();renderTypeChart();return;}
+  try {
+    const r=await fetch(`${API}/api/stats`);
+    const d=await r.json();
+    S.stats={total:d.total,analyzed:d.analyzed,categorized:d.analyzed,moved:d.operations};
+    updateStatCards();
+    if(d.cat_dist?.length){
+      const max=Math.max(...d.cat_dist.map(x=>x.cnt),1);
+      const cols=['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#ef4444'];
+      document.getElementById('catChart').innerHTML=d.cat_dist.map(({category,cnt},i)=>`
+        <div class="brow"><div class="blbl" title="${category}">${category}</div>
+          <div class="btrack"><div class="bfill" style="width:${Math.round(cnt/max*100)}%;background:${cols[i%cols.length]};">${cnt}</div></div>
+          <div class="bcnt">${cnt}</div></div>`).join('');
+    }
+    if(d.type_dist?.length){
+      const max=Math.max(...d.type_dist.map(x=>x.cnt),1);
+      document.getElementById('typeChart').innerHTML=d.type_dist.map(({file_type,cnt})=>`
+        <div class="brow"><div class="blbl">.${file_type}</div>
+          <div class="btrack"><div class="bfill" style="width:${Math.round(cnt/max*100)}%;background:var(--purple);">${cnt}</div></div>
+          <div class="bcnt">${cnt}</div></div>`).join('');
+    }
+    if(d.recent_ops?.length){
+      const b=document.getElementById('opsBody');
+      b.innerHTML=d.recent_ops.map(op=>`
+        <tr><td>${new Date(op.executed_at*1000).toLocaleTimeString()}</td>
+        <td>${op.source?.split(/[\\/]/).pop()||''}</td><td>${op.dry_run?'[DRY] ':''}${op.operation}</td>
+        <td>${op.destination||''}</td><td style="color:${op.status==='success'?'var(--green2)':'var(--red)'};">${op.status}</td></tr>`).join('');
+    }
+  } catch(e){updateStatCards();}
+}
+
+function updateStatCards() {
+  document.getElementById('sTotal').textContent=S.stats.total||S.files.length;
+  document.getElementById('sAnlz').textContent=S.stats.analyzed||S.results.length;
+  document.getElementById('sCat').textContent=S.stats.categorized||S.results.length;
+  document.getElementById('sMoved').textContent=S.stats.moved;
+  document.getElementById('sSize').textContent=fmtSz(S.files.reduce((a,f)=>a+(f.size||0),0));
+  document.getElementById('sCats').textContent=S.categories.length;
+}
+
+function renderTypeChart() {
+  const counts={};
+  S.files.forEach(f=>{counts[f.type||'?']=(counts[f.type||'?']||0)+1;});
+  const max=Math.max(...Object.values(counts),1);
+  document.getElementById('typeChart').innerHTML=Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([t,c])=>`
+    <div class="brow"><div class="blbl">.${t}</div>
+      <div class="btrack"><div class="bfill" style="width:${Math.round(c/max*100)}%;background:var(--purple);">${c}</div></div>
+      <div class="bcnt">${c}</div></div>`).join('');
+}
+
+function exportStats(){dlTxt('stats.json',JSON.stringify({stats:S.stats,categories:S.categories},null,2));toast('Exported','success');}
+
+// ================================================================
+// LOG
+// ================================================================
+function addLog(msg,type='info') {
+  const now=new Date().toLocaleTimeString();
+  S.log=(S.log||[]);
+  S.log.push({time:now,msg,type});
+  const area=document.getElementById('logArea');
+  const div=document.createElement('div');
+  div.className='ll';div.dataset.type=type;div.dataset.msg=msg.toLowerCase();
+  const ic={info:'ℹ',success:'✓',warn:'⚠',error:'✗',ai:'🤖'};
+  div.innerHTML=`<span class="lt">${now}</span><span class="lm ${type}">${ic[type]||''} ${msg}</span>`;
+  area.appendChild(div);
+  if(document.getElementById('autoScroll')?.checked)area.scrollTop=area.scrollHeight;
+  refreshLogCounts();
+  applyLogF();
+}
+
+function applyLogF() {
+  const tf=(document.getElementById('logTF')?.value||'');
+  const sf=(document.getElementById('logSF')?.value||'').toLowerCase();
+  let v=0;
+  document.querySelectorAll('.ll').forEach(line=>{
+    const show=(!tf||line.dataset.type===tf)&&(!sf||(line.dataset.msg||'').includes(sf));
+    line.classList.toggle('hidden',!show);
+    if(show)v++;
+  });
+  document.getElementById('logVisible').textContent=`${v} visible`;
+}
+
+function refreshLogCounts(){document.getElementById('logTotal').textContent=`${(S.log||[]).length} entries`;}
+function clearLog(){S.log=[];document.getElementById('logArea').innerHTML='';refreshLogCounts();document.getElementById('logVisible').textContent='0 visible';toast('Log cleared','info');}
+function exportLog(){dlTxt('organizer.log',(S.log||[]).map(l=>`[${l.time}] [${l.type.toUpperCase()}] ${l.msg}`).join('\n'));toast('Log exported','success');}
+
+// ================================================================
+// SHUTDOWN
+// ================================================================
+async function doShutdown() {
+  closeM('mShutdown');
+  setStatus('running','SHUTTING DOWN');
+  addLog('Graceful shutdown initiated…','warn');
+  try{await fetch(`${API}/api/shutdown`,{method:'POST',signal:AbortSignal.timeout(3000)});}catch(_){}
+  await sleep(800);
+  document.body.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#0a0c10;color:#64748b;font-family:'JetBrains Mono',monospace;gap:16px;text-align:center;">
+    <div style="font-size:52px;">⏻</div>
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:#e2e8f0;">AI File Organizer</div>
+    <div style="font-size:13px;">Server shut down.</div>
+    <div style="font-size:12px;">Restart: <code style="background:#161c2a;padding:2px 8px;border-radius:4px;color:#60a5fa;">START.bat</code> or <code style="background:#161c2a;padding:2px 8px;border-radius:4px;color:#60a5fa;">python server.py</code></div>
+  </div>`;
+}
+
+// ================================================================
+// STATUS / MODALS / TOAST / UTILS
+// ================================================================
+function setStatus(t,txt){const p=document.getElementById('gStatus');p.className='sp '+t;document.getElementById('gDot').className='dot'+(t==='running'?' pulse':'');document.getElementById('gText').textContent=txt;}
+function openM(id){document.getElementById(id).classList.add('open');}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+document.addEventListener('click',e=>{if(e.target.classList.contains('mo'))e.target.classList.remove('open');});
+function toast(msg,type='info'){const ic={success:'✓',error:'✗',warn:'⚠',info:'ℹ'};const el=document.createElement('div');el.className=`toast ${type}`;el.innerHTML=`<span>${ic[type]||'ℹ'}</span><span>${msg}</span>`;document.getElementById('toastC').appendChild(el);setTimeout(()=>el.remove(),3500);}
+function fmtSz(b){if(!b)return'0 B';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(2)+' GB';}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function dlTxt(name,text){const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click();}
+</script>
+</body>
+</html>
