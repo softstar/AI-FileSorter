@@ -221,22 +221,19 @@ def classify_heuristic(file_info):
 # ── AI callers ───────────────────────────────────────────────────
 def build_user_msg(fi, preview=""):
     dt = datetime.fromtimestamp(fi["modified"]).strftime("%Y-%m-%d") if fi.get("modified") else ""
-    return (f"Filename: {fi.get('name','')}
-"
-            f"Extension: .{fi.get('type','')}
-"
-            f"Size: {fi.get('size',0)} bytes
-"
-            f"Modified: {dt}
-"
-            f"Path: {fi.get('path','')}
-"
-            + (f"
-Content snippet:
-{preview[:1500]}" if preview else "")
-            + "
+return (
+    f"Filename: {fi.get('name','')}\n"
+    f"Extension: .{fi.get('type','')}\n"
+    f"Size: {fi.get('size',0)} bytes\n"
+    f"Modified: {dt}\n"
+    f"Path: {fi.get('path','')}\n"
+    + (
+        f"\nContent snippet:\n{preview[:1500]}"
+        if preview else ""
+    )
+    + "\n\nReturn JSON only."
+)
 
-Return JSON only.")
 
 def parse_ai_json(text):
     clean = re.sub(r"```[a-z]*","",text or "").replace("```","").strip()
@@ -298,7 +295,14 @@ def call_ollama(fi, prov, model):
     system  = CFG.get("system_prompt", DEFAULT_CFG["system_prompt"])
     r = http.post(f"{base}/api/generate",
         headers={"Content-Type":"application/json"},
-        json={"model":model,"prompt":f"{system}
+
+
+json={
+    "model": model,
+    "prompt": f"{system}\n\n{build_user_msg(fi, preview)}",
+    "stream": False,
+    "format": "json"
+}
 
 {build_user_msg(fi,preview)}",
               "stream":False,"format":"json"},
