@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AI File Organizer</title>
+<link rel="icon" id="favicon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂</text></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap');
 :root{
@@ -17,6 +18,8 @@
 body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
 /* TITLEBAR */
 .titlebar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;height:48px;gap:12px;flex-shrink:0;}
+.app-icon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer;overflow:hidden;flex-shrink:0;}
+.app-icon img{width:100%;height:100%;object-fit:contain;}
 .logo{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;}
 .titlebar h1{font-family:var(--sans);font-size:15px;font-weight:700;letter-spacing:.05em;}
 .tb-sub{font-size:11px;color:var(--text3);}
@@ -201,7 +204,8 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
 <body>
 
 <div class="titlebar">
-  <div class="logo">🗂</div>
+  <input type="file" id="logoUpload" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+  <div class="app-icon" id="appIcon" title="Click to change logo" onclick="document.getElementById('logoUpload').click()">🗂</div>
   <h1>AI FILE ORGANIZER</h1>
   <span class="tb-sub">v3.0</span>
   <div class="spacer"></div>
@@ -284,6 +288,7 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
     <div class="pha">
       <button class="btn btn-g btn-sm" onclick="openPromptM()">👁 Prompt</button>
       <button class="btn btn-g btn-sm" onclick="clearQ()">🗑 Clear</button>
+      <button class="btn btn-w btn-sm" id="stopBtn" onclick="stopAnalysis()" style="display:none;">⏹ Stop</button>
       <button class="btn btn-p btn-sm" id="runBtn" onclick="runAnalysis()">▶ Run Analysis</button>
     </div>
   </div>
@@ -346,55 +351,63 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
     </div>
   </div>
   <div class="split">
-    <div class="sl" style="width:300px;overflow-y:auto;">
-      <div class="stitle">Operation Settings</div>
-      <div class="fg"><label>Operation Mode</label>
-        <select id="opMode">
-          <option value="copy">📋 Copy Files (safe — keeps originals)</option>
-          <option value="move">✂ Move Files (removes from source)</option>
-        </select>
-      </div>
-      <div class="fg"><label>Destination Directory</label>
-        <div class="row">
-          <input type="text" id="orgDest" value="C:\Organized" placeholder="C:\Organized" style="flex:1;" oninput="refreshPreview()">
-          <button class="btn btn-g btn-sm" onclick="openBrowse('orgDest')" title="Browse">📂</button>
+    <!-- LEFT: settings + live structure preview -->
+    <div class="sl" style="width:320px;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="overflow-y:auto;flex-shrink:0;">
+        <div class="stitle">Settings</div>
+        <div class="fg"><label>Operation Mode</label>
+          <select id="opMode">
+            <option value="copy">📋 Copy (keeps originals)</option>
+            <option value="move">✂ Move (removes source)</option>
+          </select>
+        </div>
+        <div class="fg"><label>Destination Directory</label>
+          <div class="row">
+            <input type="text" id="orgDest" value="C:\Organized" placeholder="C:\Organized" style="flex:1;" oninput="buildPreview();localStorage.setItem('afo_destdir',this.value)">
+            <button class="btn btn-g btn-sm" onclick="openBrowse('orgDest')" title="Browse">📂</button>
+          </div>
+        </div>
+        <div class="fg"><label>Directory Structure</label>
+          <select id="structMode" onchange="structModeChange()">
+            <option value="ai">AI Suggested Path</option>
+            <option value="category">By Category</option>
+            <option value="type">By File Type</option>
+            <option value="date">By Date Modified</option>
+            <option value="custom">Custom Template</option>
+          </select>
+        </div>
+        <div class="fg" id="custTplG" style="display:none;"><label>Path Template</label>
+          <input type="text" id="custTpl" value="{category}/{year}/{month}" oninput="buildPreview()">
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">{category} {year} {month} {type} {filename}</div>
+        </div>
+        <div class="fg">
+          <div class="row sb"><label style="margin:0;">Dry Run (preview only)</label>
+            <label class="tog"><input type="checkbox" id="dryRun" checked><span class="tsl"></span></label></div>
+        </div>
+        <div style="padding:8px 14px;display:flex;flex-direction:column;gap:6px;">
+          <button class="btn btn-s" style="width:100%;" onclick="execOrg()">⚡ Execute</button>
         </div>
       </div>
-      <div class="fg"><label>Directory Structure</label>
-        <select id="structMode" onchange="structChange();refreshPreview()">
-          <option value="ai">AI Suggested Path</option>
-          <option value="category">By Category</option>
-          <option value="type">By File Type</option>
-          <option value="date">By Date Modified</option>
-          <option value="custom">Custom Template</option>
-        </select>
-      </div>
-      <div class="fg" id="custTplG" style="display:none;"><label>Path Template</label>
-        <input type="text" id="custTpl" value="{category}/{year}/{month}/{filename}" oninput="refreshPreview()">
-        <div style="font-size:10px;color:var(--text3);margin-top:4px;">Variables: {category} {year} {month} {type} {filename}</div>
-      </div>
-      <div class="fg"><label>Conflict Resolution</label>
-        <select id="conflictMode">
-          <option value="rename">Rename (add number)</option>
-          <option value="skip">Skip</option>
-          <option value="overwrite">Overwrite</option>
-        </select>
-      </div>
-      <div class="fg">
-        <div class="row sb"><label style="margin:0;">Dry Run (preview only)</label>
-          <label class="tog"><input type="checkbox" id="dryRun" checked><span class="tsl"></span></label></div>
-        <div class="wb" style="margin-top:8px;font-size:10px;">⚠ Disable dry run to actually move/copy files</div>
-      </div>
-      <div style="padding:12px 16px;">
-        <button class="btn btn-s" style="width:100%;margin-bottom:8px;" onclick="execOrg()">⚡ Execute Organization</button>
-        <button class="btn btn-g" style="width:100%;" onclick="refreshPreview()">🔄 Refresh Preview</button>
+      <!-- LIVE STRUCTURE PREVIEW — always visible, always current -->
+      <div style="border-top:1px solid var(--border);flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="stitle" style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+          <span>Structure Preview</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="prevFileCount" style="font-size:10px;color:var(--text3);font-weight:400;"></span>
+            <button class="btn btn-o btn-xs" onclick="buildPreview()" title="Refresh preview">↺</button>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:6px 10px;font-size:11px;font-family:var(--mono);" id="structPrev">
+          <div class="es" style="padding:16px;"><div class="ei" style="font-size:20px;">🗂</div><p>Load files to see preview</p></div>
+        </div>
       </div>
     </div>
+
+    <!-- RIGHT: pending file list + completed/failed tabs -->
     <div class="sr">
       <div class="tabs">
         <div class="tab active" id="ot-pending"   onclick="oTab('pending')">Pending <span class="tc" id="pendBadge">0</span></div>
-        <div class="tab"        id="ot-preview"   onclick="oTab('preview')">Structure Preview</div>
-        <div class="tab"        id="ot-completed" onclick="oTab('completed')">Completed <span class="tc" id="compBadge">0</span></div>
+        <div class="tab"        id="ot-completed" onclick="oTab('completed')">Done <span class="tc" id="compBadge">0</span></div>
         <div class="tab"        id="ot-failed"    onclick="oTab('failed')">Failed <span class="tc" id="failBadge">0</span></div>
       </div>
       <div class="tp active" id="otp-pending" style="flex-direction:column;">
@@ -406,15 +419,12 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
           <div class="f1"></div>
           <input type="text" placeholder="Filter…" style="width:150px;" oninput="filterOrg(this.value)">
         </div>
-        <div style="flex:1;overflow-y:auto;" id="pendList"><div class="es"><div class="ei">⏳</div><p>Click "Load Analyzed" or "Load All Scanned" above</p></div></div>
+        <div style="flex:1;overflow-y:auto;" id="pendList">
+          <div class="es"><div class="ei">⏳</div><p>Click "Load Analyzed" or "Load All Scanned" above</p></div>
+        </div>
         <div style="padding:8px 16px;border-top:1px solid var(--border);background:var(--bg2);">
           <div class="pbar"><div class="pfill" id="orgFill" style="width:0%"></div></div>
           <div style="margin-top:6px;font-size:11px;color:var(--text3);" id="orgProg">Ready</div>
-        </div>
-      </div>
-      <div class="tp" id="otp-preview" style="flex-direction:column;">
-        <div style="flex:1;overflow-y:auto;" id="structPrev">
-          <div class="es"><div class="ei">🗂</div><p>Load files and click "Refresh Preview"</p></div>
         </div>
       </div>
       <div class="tp" id="otp-completed" style="flex-direction:column;">
@@ -426,6 +436,8 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
     </div>
   </div>
 </div>
+
+
 
 <!-- ===== TAGS ===== -->
 <div class="panel" id="panel-tags">
@@ -499,10 +511,13 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
 <div class="panel" id="panel-settings">
   <div class="ph"><span>⚙️</span><h2>Settings</h2>
     <div class="pha">
+      <button class="btn btn-o btn-sm" onclick="loadScanFile()">📂 Load .scan</button>
+      <button class="btn btn-o btn-sm" onclick="saveScanFile()">💾 Export .scan</button>
       <button class="btn btn-g btn-sm" onclick="resetSettings()">↩ Reset</button>
-      <button class="btn btn-p btn-sm" onclick="saveAllSettings()">💾 Save All</button>
+      <button class="btn btn-p btn-sm" onclick="saveAllSettings()">💾 Save</button>
     </div>
   </div>
+  <input type="file" id="scanFileInput" accept=".scan,.json" style="display:none" onchange="importScanFile(this)">
   <div class="tabs">
     <div class="tab active" id="st-ai"        onclick="sTab('ai')">AI Model</div>
     <div class="tab"        id="st-providers" onclick="sTab('providers')">Providers</div>
@@ -510,6 +525,7 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
     <div class="tab"        id="st-filetypes" onclick="sTab('filetypes')">File Types</div>
     <div class="tab"        id="st-system"    onclick="sTab('system')">System</div>
     <div class="tab"        id="st-database"  onclick="sTab('database')">Database</div>
+    <div class="tab"        id="st-logo"      onclick="sTab('logo')">🖼 Logo</div>
   </div>
   <!-- AI MODEL -->
   <div class="tp active cs" id="stp-ai">
@@ -580,6 +596,16 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
       <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:12px;">Ollama Connection</div>
       <div class="fg"><label>Ollama Server URL (must be local)</label>
         <input type="text" id="ollamaUrl" value="http://localhost:11434" oninput="syncOllamaUrl('ollama')"></div>
+      <div class="fg" id="ollamaKeyRow">
+        <label>Ollama API Key <span style="color:var(--text3);font-weight:400;">(only needed if Ollama requires auth — Ollama 0.4+)</span></label>
+        <div class="row">
+          <input type="password" id="ollamaApiKey" placeholder="Leave blank if no auth required" style="flex:1;">
+          <button class="btn btn-g btn-sm" onclick="toggleOllamaKey()">👁</button>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:4px;">
+          If you get a 401 error, set <span class="code">OLLAMA_API_KEY</span> in your environment, or enter it here and save settings.
+        </div>
+      </div>
       <div class="row" style="gap:8px;margin-bottom:12px;">
         <button class="btn btn-g btn-sm" onclick="testOllama()">🔌 Test</button>
         <button class="btn btn-g btn-sm" onclick="testOllama()">↻ Refresh</button>
@@ -668,6 +694,24 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
       </div>
     </div>
   </div>
+  <!-- LOGO -->
+  <div class="tp cs" id="stp-logo">
+    <div class="pb">
+      <div style="font-family:var(--sans);font-weight:700;color:var(--text2);margin-bottom:14px;">Application Logo &amp; Icon</div>
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:20px;">
+        <div id="logoPreviewLg" style="width:80px;height:80px;border-radius:18px;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:44px;overflow:hidden;">🗂</div>
+        <div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;line-height:1.7;">Upload a custom image to use as the app icon.<br>Appears in the title bar and browser tab.</div>
+          <div style="display:flex;gap:8px;">
+            <input type="file" id="logoUploadSettings" accept="image/*" style="display:none" onchange="handleLogoUpload(this)">
+            <button class="btn btn-p btn-sm" onclick="document.getElementById('logoUploadSettings').click()">📤 Upload Image</button>
+            <button class="btn btn-g btn-sm" onclick="resetLogo()">↩ Use Default</button>
+          </div>
+        </div>
+      </div>
+      <div class="ib">Logo is stored in your browser's localStorage and persists between sessions.</div>
+    </div>
+  </div>
 </div>
 
 <!-- ===== LOG ===== -->
@@ -716,23 +760,24 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
 
 <!-- Browse Directory -->
 <div class="mo" id="mBrowse">
-  <div class="md">
-    <div class="mh"><span>📂</span><h3 id="browseTitle">Select Directory</h3><button class="btn btn-g btn-sm" onclick="closeM('mBrowse')">✕</button></div>
-    <div class="mb">
-      <div class="row" style="margin-bottom:10px;gap:6px;">
-        <div style="flex:1;font-size:12px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="browseCurrentPath">/</div>
-        <button class="btn btn-g btn-sm" onclick="browseUp()">↑ Up</button>
+  <div class="md" style="width:580px;height:460px;display:flex;flex-direction:column;">
+    <div class="mh"><span>📂</span><h3>Select Directory</h3><button class="btn btn-g btn-sm" onclick="closeM('mBrowse')">✕</button></div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;">
+        <button class="btn btn-g btn-sm" onclick="browseUp()">⬆ Up</button>
+        <div style="flex:1;font-size:11px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="browseCurrentPath">/</div>
       </div>
-      <div id="browseDrives" class="bdrives"></div>
-      <div id="browseDirs" style="max-height:320px;overflow-y:auto;"></div>
+      <div id="browseDrives" style="display:flex;gap:6px;flex-wrap:wrap;padding:6px 10px;background:var(--bg3);border-bottom:1px solid var(--border);"></div>
+      <div id="browseDirs" style="flex:1;overflow-y:auto;padding:6px 8px;"></div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border);background:var(--bg2);flex-shrink:0;">
+        <label style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:4px;">Selected path (editable)</label>
+        <input type="text" id="browseManualInput" placeholder="Type or navigate to a path..." style="width:100%;" oninput="S.browseCurrent=this.value">
+      </div>
     </div>
-    <div class="mf">
-      <div style="flex:1;font-size:11px;color:var(--text3);">Selected: <span id="browseSelected" style="color:var(--accent2);"></span></div>
-      <button class="btn btn-g" onclick="closeM('mBrowse')">Cancel</button>
-      <button class="btn btn-p" onclick="confirmBrowse()">Select This Directory</button>
-    </div>
+    <div class="mf"><button class="btn btn-g" onclick="closeM('mBrowse')">Cancel</button><button class="btn btn-p" onclick="confirmBrowse()">✓ Select This Folder</button></div>
   </div>
 </div>
+
 
 <!-- Add Category -->
 <div class="mo" id="mAddCat">
@@ -837,6 +882,20 @@ input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:po
   </div>
 </div>
 
+<!-- Log Detail -->
+<div class="mo" id="mLogDetail">
+  <div class="md" style="width:600px;">
+    <div class="mh"><span>🔍</span><h3>Log Entry Detail</h3>
+      <span id="logDetailTime" style="font-size:11px;color:var(--text3);margin-left:auto;margin-right:8px;"></span>
+      <button class="btn btn-g btn-sm" onclick="closeM('mLogDetail')">✕</button>
+    </div>
+    <div class="mb">
+      <pre id="logDetailBody" style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:14px;font-size:12px;color:var(--text2);white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;font-family:var(--mono);line-height:1.7;"></pre>
+    </div>
+    <div class="mf"><button class="btn btn-p" onclick="closeM('mLogDetail')">Close</button></div>
+  </div>
+</div>
+
 <!-- Shutdown -->
 <div class="mo" id="mShutdown">
   <div class="md md-sm"><div class="mh"><span>⏻</span><h3>Shutdown Server</h3><button class="btn btn-g btn-sm" onclick="closeM('mShutdown')">✕</button></div>
@@ -888,19 +947,100 @@ const S = {
 // ================================================================
 // BOOT
 // ================================================================
-document.addEventListener('DOMContentLoaded', async () => {
-  initDefaultCategories();
-  renderCatList();
-  document.getElementById('sysPrompt').value = DEFAULT_PROMPT;
-  renderWatchDirs();
+document.addEventListener('DOMContentLoaded', function() {
+  try { initDefaultCategories(); } catch(e) { console.error('initDefaultCategories', e); }
+  try { renderCatList(); } catch(e) { console.error('renderCatList', e); }
+  try { document.getElementById('sysPrompt').value = DEFAULT_PROMPT; } catch(e) {}
+  try { renderWatchDirs(); } catch(e) { console.error('renderWatchDirs', e); }
+  try { initProviders(); } catch(e) { console.error('initProviders', e); }
+  try { initFileTypes(); } catch(e) { console.error('initFileTypes', e); }
+  try { updateModelSelect(); } catch(e) { console.error('updateModelSelect', e); }
+
+  // Restore persisted API key
+  try {
+    var savedKey = localStorage.getItem('afo_apikey');
+    if (savedKey) { var kEl = document.getElementById('apiKey'); if (kEl) kEl.value = savedKey; }
+  } catch(e) {}
+
+  // Restore persisted AI model settings (localStorage fallback, overridden by server config)
+  try {
+    var savedSettings = JSON.parse(localStorage.getItem('afo_settings') || '{}');
+    if (savedSettings.ai_provider) {
+      var pEl = document.getElementById('aiProvider');
+      if (pEl) { pEl.value = savedSettings.ai_provider; providerChanged(); }
+    }
+    if (savedSettings.ai_model) {
+      setTimeout(function() {
+        var mEl = document.getElementById('aiModel');
+        if (mEl) {
+          var exists = Array.from(mEl.options).some(function(o){ return o.value === savedSettings.ai_model; });
+          if (!exists) { var o = document.createElement('option'); o.value = o.textContent = savedSettings.ai_model; mEl.add(o); }
+          mEl.value = savedSettings.ai_model;
+        }
+      }, 60);
+    }
+    if (savedSettings.ollama_url) {
+      var ouE = document.getElementById('ollamaUrl');
+      var ouE2 = document.getElementById('aiOllamaUrl');
+      if (ouE)  ouE.value  = savedSettings.ollama_url;
+      if (ouE2) ouE2.value = savedSettings.ollama_url;
+    }
+    if (savedSettings.temperature) {
+      var tsE = document.getElementById('tempSlider');
+      var tlE = document.getElementById('tempLbl');
+      if (tsE) tsE.value = savedSettings.temperature;
+      if (tlE) tlE.textContent = savedSettings.temperature;
+    }
+    if (savedSettings.max_tokens) {
+      var mtE = document.getElementById('maxTok');
+      if (mtE) mtE.value = savedSettings.max_tokens;
+    }
+  } catch(e) {}
+
+  // Restore persisted logo
+  try {
+    var savedLogo = localStorage.getItem('afo_logo');
+    if (savedLogo) applyLogo(savedLogo);
+  } catch(e) {}
+
+  // Restore persisted destination directory
+  try {
+    var savedDest = localStorage.getItem('afo_destdir');
+    if (savedDest) {
+      var dEl = document.getElementById('orgDest');
+      if (dEl) dEl.value = savedDest;
+      var drEl = document.getElementById('destRoot');
+      if (drEl) drEl.value = savedDest;
+    }
+  } catch(e) {}
+
+  // Restore scan/analysis from sessionStorage (survives F5)
+  try {
+    if (restoreSession()) {
+      renderFileTree();
+      renderQ();
+      if (S.results.length) {
+        var rBadge = document.getElementById('rBadge');
+        if (rBadge) rBadge.textContent = S.results.length;
+        try { renderResults(); } catch(e) {}
+      }
+      document.getElementById('qBadge').textContent = S.queue.length;
+      var ep = document.getElementById('expToolbar');
+      if (ep && S.files.length) ep.style.display = 'flex';
+      var cp = document.getElementById('curPath');
+      if (cp && S.files.length) cp.textContent = watchDirs.join(' · ') || 'Restored from session';
+      updateStatCards();
+      addLog('Session restored: ' + S.files.length + ' files, ' + S.results.length + ' results', 'info');
+    }
+  } catch(e) { console.error('restoreSession', e); }
+
+  checkServer().then(function() {
+    try { loadTagsFromServer(); } catch(e) {}
+  }).catch(function(e) { console.error('checkServer', e); });
+
+  setInterval(checkServer, 15000);
   addLog('AI File Organizer v3.0 ready', 'info');
-  // Try connecting to server
-  await checkServer();
-  setInterval(checkServer, 10000);
-  initProviders();
-  initFileTypes();
-  updateModelSelect();
-  loadTagsFromServer();
+  if (watchDirs.length) addLog('Loaded ' + watchDirs.length + ' saved watch director' + (watchDirs.length===1?'y':'ies'), 'info');
 });
 
 async function checkServer() {
@@ -919,9 +1059,57 @@ async function checkServer() {
       if (cfg.max_preview_bytes) document.getElementById('cfgPreviewBytes').value = cfg.max_preview_bytes;
       if (cfg.dest_root) { document.getElementById('destRoot').value = cfg.dest_root; document.getElementById('orgDest').value = cfg.dest_root; }
       if (cfg.file_types) { S.fileTypes = cfg.file_types; renderFileTypes(); }
-      if (cfg.providers) { S.providers = cfg.providers; renderProviders(); }
-      if (cfg.tags) S.tags = cfg.tags;
-      if (cfg.db_path) document.getElementById('dbPathEl').value = cfg.db_path;
+      if (cfg.providers)  { S.providers = cfg.providers;  renderProviders();  }
+      if (cfg.tags)       S.tags = cfg.tags;
+      if (cfg.db_path)    { var dbEl = document.getElementById('dbPathEl'); if(dbEl) dbEl.value = cfg.db_path; }
+
+      // ── Restore AI model settings ──────────────────────────────────────
+      // API keys
+      var kEl = document.getElementById('apiKey');
+      if (cfg.api_key && kEl && !kEl.value) kEl.value = cfg.api_key;
+      var okEl = document.getElementById('ollamaApiKey');
+      if (okEl && cfg.ollama_api_key) okEl.value = cfg.ollama_api_key;
+
+      // Provider + model
+      if (cfg.ai_provider) {
+        var provEl = document.getElementById('aiProvider');
+        if (provEl) { provEl.value = cfg.ai_provider; providerChanged(); }
+      }
+      if (cfg.ai_model) {
+        // Wait a tick for providerChanged() to populate the select
+        setTimeout(function() {
+          var modelEl = document.getElementById('aiModel');
+          if (modelEl) {
+            // If option doesn't exist yet, add it (e.g. Ollama model)
+            var exists = Array.from(modelEl.options).some(function(o){ return o.value === cfg.ai_model; });
+            if (!exists) {
+              var opt = document.createElement('option');
+              opt.value = opt.textContent = cfg.ai_model;
+              modelEl.add(opt);
+            }
+            modelEl.value = cfg.ai_model;
+          }
+        }, 50);
+      }
+
+      // Ollama URL (sync both fields)
+      if (cfg.ollama_url) {
+        var ouEl  = document.getElementById('ollamaUrl');
+        var ouEl2 = document.getElementById('aiOllamaUrl');
+        if (ouEl)  ouEl.value  = cfg.ollama_url;
+        if (ouEl2) ouEl2.value = cfg.ollama_url;
+      }
+
+      // Parameters
+      if (cfg.temperature !== undefined) {
+        var ts = document.getElementById('tempSlider');
+        var tl = document.getElementById('tempLbl');
+        if (ts) ts.value = cfg.temperature;
+        if (tl) tl.textContent = cfg.temperature;
+      }
+      if (cfg.max_tokens)  { var mt = document.getElementById('maxTok');     if(mt) mt.value = cfg.max_tokens;  }
+      if (cfg.batch_size)  { var bs = document.getElementById('batchSz');    if(bs) bs.value = cfg.batch_size;  }
+      if (cfg.timeout)     { var to = document.getElementById('timeoutSec'); if(to) to.value = cfg.timeout;     }
     }
   } catch(e) {
     S.serverOnline = false;
@@ -933,6 +1121,38 @@ async function checkServer() {
 // ================================================================
 // NAV
 // ================================================================
+// ── Logo ─────────────────────────────────────────────────────
+function handleLogoUpload(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    localStorage.setItem('afo_logo', e.target.result);
+    applyLogo(e.target.result);
+    toast('Logo updated', 'success');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function applyLogo(dataUrl) {
+  var icon = document.getElementById('appIcon');
+  if (icon) icon.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:contain;">';
+  var prev = document.getElementById('logoPreviewLg');
+  if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:contain;">';
+  var fav = document.getElementById('favicon');
+  if (fav) fav.href = dataUrl;
+}
+
+function resetLogo() {
+  localStorage.removeItem('afo_logo');
+  var icon = document.getElementById('appIcon');
+  if (icon) icon.innerHTML = '🗂';
+  var prev = document.getElementById('logoPreviewLg');
+  if (prev) prev.innerHTML = '🗂';
+  toast('Logo reset', 'info');
+}
+
 function showP(name) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
@@ -943,7 +1163,7 @@ function showP(name) {
   if (name==='settings') { renderProviders(); renderFileTypes(); }
 }
 function sTab(t) {
-  ['ai','providers','ollama','filetypes','system','database'].forEach(x=>{
+  ['ai','providers','ollama','filetypes','system','database','logo'].forEach(x=>{
     document.getElementById('st-'+x)?.classList.toggle('active',x===t);
     document.getElementById('stp-'+x)?.classList.toggle('active',x===t);
   });
@@ -956,24 +1176,30 @@ function aTabs(t) {
 }
 function aTab(t) { aTabs(t); }
 function oTab(t) {
-  ['pending','preview','completed','failed'].forEach(x=>{
-    document.getElementById('ot-'+x)?.classList.toggle('active',x===t);
-    document.getElementById('otp-'+x)?.classList.toggle('active',x===t);
+  ['pending','completed','failed'].forEach(function(x) {
+    var tab = document.getElementById('ot-'+x);
+    var pnl = document.getElementById('otp-'+x);
+    if (tab) tab.classList.toggle('active', x===t);
+    if (pnl) pnl.classList.toggle('active', x===t);
   });
-  if (t==='preview') refreshPreview();
 }
+
 
 // ================================================================
 // EXPLORER
 // ================================================================
-let watchDirs = ['C:\\Users\\User\\Documents','C:\\Users\\User\\Downloads'];
+var watchDirs = JSON.parse(localStorage.getItem('afo_watchdirs') || '[]');
 
 function renderWatchDirs() {
-  document.getElementById('wdList').innerHTML = watchDirs.map((d,i)=>`
-    <div class="dtarget">
-      <span>📁</span><span class="dp">${d}</span>
-      <button class="btn btn-g btn-sm" onclick="watchDirs.splice(${i},1);renderWatchDirs()">✕</button>
-    </div>`).join('');
+  localStorage.setItem('afo_watchdirs', JSON.stringify(watchDirs));
+  var el = document.getElementById('wdList');
+  if (!el) return;
+  el.innerHTML = watchDirs.length ? watchDirs.map(function(d, i) {
+    return '<div class="dtarget">' +
+      '<span>📁</span><span class="dp" title="' + d + '">' + d + '</span>' +
+      '<button class="btn btn-g btn-sm" onclick="watchDirs.splice(' + i + ',1);renderWatchDirs()">✕</button>' +
+      '</div>';
+  }).join('') : '<div style="padding:8px 12px;font-size:11px;color:var(--text3);">No directories added yet</div>';
 }
 
 function openAddDirM() { document.getElementById('newDirPath').value=''; openM('mAddDir'); }
@@ -994,9 +1220,21 @@ async function doScan() {
   setStatus('running','SCANNING');
   if (S.serverOnline) {
     try {
-      const ft = document.getElementById('ftypeFilter').value;
-      const r = await fetch(`${API}/api/scan`, {method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({directories:watchDirs,file_types:ft})});
+      var ft       = document.getElementById('ftypeFilter').value;
+      var inclSubEl = document.getElementById('inclSub');
+      var recursive = inclSubEl ? inclSubEl.checked : true;
+      var excl      = (document.getElementById('excludePats') ? document.getElementById('excludePats').value : '')
+                        .split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+      var r = await fetch(API + '/api/scan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          directories: watchDirs,
+          file_types:  ft,
+          recursive:   recursive,
+          exclude:     excl.length ? excl : undefined,
+        })
+      });
       const d = await r.json();
       S.files = d.files;
     } catch(e) { addLog('Scan error: '+e.message,'error'); loadDemo(); return; }
@@ -1008,7 +1246,9 @@ async function doScan() {
   updateStatCards();
   renderTypeChart();
   setStatus('done','READY');
-  addLog(`Scan complete — ${S.files.length} files found`,'success');
+  var dirs_word = watchDirs.length === 1 ? 'directory' : 'directories';
+  persistSession();
+  addLog('Scan complete — ' + S.files.length + ' files found across ' + watchDirs.length + ' ' + dirs_word + ' (including subdirectories)', 'success');
 }
 
 function loadDemo() {
@@ -1040,32 +1280,38 @@ function loadDemo() {
 }
 
 function renderFileTree() {
-  const c = document.getElementById('fileTree');
-  if (!S.files.length) { c.innerHTML='<div class="es"><div class="ei">📂</div><p>No files found</p></div>'; return; }
-  const dirs = {};
-  S.files.forEach((f,i)=>{
-    const parts = f.path.replace(/\\/g,'/').split('/');
-    const dir = parts.slice(0,-1).join('/') || 'Root';
-    if (!dirs[dir]) dirs[dir]=[];
-    dirs[dir].push({...f,idx:i});
+  var ct = document.getElementById('fileTree');
+  if (!S.files.length) { ct.innerHTML='<div class="es"><div class="ei">📂</div><p>No files found</p></div>'; return; }
+  var dirs = {};
+  S.files.forEach(function(f, i) {
+    var parts = f.path.replace(/\\/g, '/').split('/');
+    var dir = parts.slice(0,-1).join('/') || 'Root';
+    if (!dirs[dir]) dirs[dir] = [];
+    dirs[dir].push({f:f, idx:i});
   });
-  let html='';
-  for (const [dir,files] of Object.entries(dirs)) {
-    const lbl = dir.split('/').pop()||dir;
-    html+=`<div class="ti dir" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'':'none'">
-      <span style="font-size:14px;">📁</span><span class="nm">${lbl}</span><span class="badge">${files.length}</span></div>
-    <div class="ti-indent">`;
-    files.forEach(f=>{
-      html+=`<div class="ti file" id="fi-${f.idx}">
-        <input type="checkbox" class="fcb" data-i="${f.idx}" onchange="onFileCb()">
-        <span style="font-size:14px;">${f.icon}</span><span class="nm">${f.name}</span>
-        <span style="font-size:10px;color:var(--text3);flex-shrink:0;margin-left:auto;">${fmtSz(f.size)}</span>
-      </div>`;
+  var html = '';
+  Object.keys(dirs).forEach(function(dir) {
+    var items = dirs[dir];
+    var lbl = dir.split('/').pop() || dir;
+    html += '<div class="ti dir" onclick="toggleDir(this)">' +
+      '<span style="font-size:14px;">📁</span><span class="nm">' + lbl + '</span>' +
+      '<span class="badge">' + items.length + '</span></div><div class="ti-indent">';
+    items.forEach(function(it) {
+      html += '<div class="ti file" id="fi-' + it.idx + '">' +
+        '<input type="checkbox" class="fcb" data-i="' + it.idx + '" onchange="onFileCb()" onclick="event.stopPropagation()">' +
+        '<span style="font-size:14px;">' + (it.f.icon || '📄') + '</span>' +
+        '<span class="nm">' + it.f.name + '</span>' +
+        '<span style="font-size:10px;color:var(--text3);margin-left:auto;">' + fmtSz(it.f.size) + '</span></div>';
     });
-    html+='</div>';
-  }
-  c.innerHTML=html;
+    html += '</div>';
+  });
+  ct.innerHTML = html;
   onFileCb();
+}
+
+function toggleDir(el) {
+  var n = el.nextElementSibling;
+  if (n) n.style.display = n.style.display === 'none' ? '' : 'none';
 }
 
 function selAllFiles(v) {
@@ -1108,23 +1354,86 @@ function sendToQ() {
 // ANALYSIS
 // ================================================================
 function renderQ() {
-  document.getElementById('qBadge').textContent=S.queue.length;
-  const el=document.getElementById('qList');
-  if (!S.queue.length){el.innerHTML='<div class="es"><div class="ei">🔬</div><p>No files in queue</p></div>';updateQSel();return;}
-  el.innerHTML=S.queue.map((f,i)=>{
-    const sc=f.status==='done'?'var(--green2)':f.status==='analyzing'?'var(--accent2)':f.status==='error'?'var(--red)':'var(--text3)';
-    const fb=f.fallback?'<span style="font-size:10px;color:var(--yellow);" title="Heuristic fallback used">⚠ heuristic</span>':'';
-    return `<div class="ri">
-      <input type="checkbox" ${f.selected?'checked':''} onchange="S.queue[${i}].selected=this.checked;updateQSel()">
-      <span class="fi">${f.icon}</span>
-      <div class="finfo"><div class="fn">${f.name}</div><div class="fp">${f.path}</div></div>
-      <span style="font-size:10px;color:var(--text3);flex-shrink:0;">${fmtSz(f.size)}</span>
-      ${fb}
-      <span style="padding:2px 8px;border-radius:4px;font-size:10px;background:${sc}22;color:${sc};flex-shrink:0;">${f.status}</span>
-    </div>`;
-  }).join('');
+  var badge = document.getElementById('qBadge');
+  if (badge) badge.textContent = S.queue.length;
+  var el = document.getElementById('qList');
+  if (!el) return;
+  if (!S.queue.length) {
+    el.innerHTML = '<div class="es"><div class="ei">🔬</div><p>No files in queue. Select files in Explorer and click Queue for Analysis.</p></div>';
+    updateQSel();
+    return;
+  }
+  // Build HTML using safe string concatenation — no template literals
+  var html = '';
+  S.queue.forEach(function(f, i) {
+    var sc = f.status === 'done'      ? 'var(--green2)'  :
+             f.status === 'analyzing' ? 'var(--accent2)' :
+             f.status === 'error'     ? 'var(--red)'     : 'var(--text3)';
+    var statusLabel = f.status || 'queued';
+    var fb = f.fallback
+      ? '<span style="font-size:10px;color:var(--yellow);margin-left:4px;" title="Heuristic fallback used">⚠ heuristic</span>'
+      : '';
+    var errTip = (f.status === 'error' && f.errorMsg)
+      ? ' title="' + f.errorMsg.replace(/"/g,'&quot;') + '"'
+      : '';
+    html += '<div class="ri" id="qi-' + i + '">' +
+      '<input type="checkbox" ' + (f.selected ? 'checked' : '') +
+        ' onchange="S.queue[' + i + '].selected=this.checked;updateQSel()">' +
+      '<span style="font-size:18px;flex-shrink:0;">' + (f.icon || '📄') + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="fn">' + f.name + fb + '</div>' +
+        '<div class="fp">' + f.path + '</div>' +
+      '</div>' +
+      '<span style="font-size:10px;color:var(--text3);flex-shrink:0;margin-right:6px;">' + fmtSz(f.size) + '</span>' +
+      '<span' + errTip + ' style="padding:2px 8px;border-radius:4px;font-size:10px;' +
+        'background:' + sc + '22;color:' + sc + ';flex-shrink:0;min-width:64px;text-align:center;">' +
+        statusLabel + '</span>' +
+      '</div>';
+  });
+  el.innerHTML = html;
   updateQSel();
 }
+
+// Update a single queue item's status badge without re-rendering the whole list
+function updateQItemStatus(i) {
+  var f  = S.queue[i];
+  if (!f) return;
+  var el = document.getElementById('qi-' + i);
+  if (!el) {
+    // Element not found — the list may not be rendered yet, render it fresh
+    renderQ();
+    return;
+  }
+  var sc = f.status === 'done'      ? 'var(--green2)'  :
+           f.status === 'analyzing' ? 'var(--accent2)' :
+           f.status === 'error'     ? 'var(--red)'     : 'var(--text3)';
+  // Update status badge (last span child)
+  var spans = el.querySelectorAll('span');
+  var badge = null;
+  for (var j = spans.length - 1; j >= 0; j--) {
+    if (spans[j].style.minWidth === '64px') { badge = spans[j]; break; }
+  }
+  if (!badge) {
+    // Fallback: find the status badge by looking for text content matching a status word
+    for (var j = spans.length - 1; j >= 0; j--) {
+      var t = spans[j].textContent.trim();
+      if (['queued','analyzing','done','error'].indexOf(t) >= 0) { badge = spans[j]; break; }
+    }
+  }
+  if (badge) {
+    badge.textContent = f.status || 'queued';
+    badge.style.background = sc + '22';
+    badge.style.color = sc;
+    if (f.errorMsg) badge.title = f.errorMsg;
+  }
+  // Add heuristic badge if needed
+  var fnDiv = el.querySelector('.fn');
+  if (fnDiv && f.fallback && !fnDiv.querySelector('.heuristic-badge')) {
+    fnDiv.insertAdjacentHTML('beforeend',
+      '<span class="heuristic-badge" style="font-size:10px;color:var(--yellow);margin-left:4px;">⚠ heuristic</span>');
+  }
+}
+
 
 function updateQSel() {
   const s=S.queue.filter(f=>f.selected).length;
@@ -1143,94 +1452,200 @@ function filterQ(q) {
   });
 }
 
-function clearQ(){S.queue=[];S.results=[];renderQ();document.getElementById('rList').innerHTML='<div class="es"><div class="ei">📋</div><p>No results yet</p></div>';document.getElementById('prevTree').innerHTML='<div class="es"><div class="ei">🗂</div><p>Run analysis to see plan</p></div>';document.getElementById('qBadge').textContent='0';document.getElementById('rBadge').textContent='0';}
+function stopAnalysis() {
+  S.analysisAborted = true;
+  var stopBtn = document.getElementById('stopBtn');
+  var runBtn  = document.getElementById('runBtn');
+  if (stopBtn) stopBtn.style.display = 'none';
+  if (runBtn)  { runBtn.disabled = false; runBtn.textContent = '▶ Run Analysis'; }
+  setStatus('idle', 'STOPPED');
+  addLog('Analysis stopped by user', 'warn');
+  toast('Analysis stopped', 'warn');
+  // Mark any still-analyzing files as queued so they can be re-run
+  S.queue.forEach(function(f) {
+    if (f.status === 'analyzing') { f.status = 'queued'; }
+  });
+  renderQ();
+}
+
+function clearQ() {
+  // Stop any running analysis
+  S.analysisAborted = true;
+  S.queue = [];
+  S.results = [];
+  // Reset UI
+  var runBtn = document.getElementById('runBtn');
+  if (runBtn) { runBtn.disabled = false; runBtn.textContent = '▶ Run Analysis'; }
+  var rList = document.getElementById('rList');
+  if (rList) rList.innerHTML = '<div class="es"><div class="ei">📋</div><p>No results yet</p></div>';
+  var prevTree = document.getElementById('prevTree');
+  if (prevTree) prevTree.innerHTML = '<div class="es"><div class="ei">🗂</div><p>Run analysis to see plan</p></div>';
+  var qBadge = document.getElementById('qBadge');
+  if (qBadge) qBadge.textContent = '0';
+  var rBadge = document.getElementById('rBadge');
+  if (rBadge) rBadge.textContent = '0';
+  renderQ();
+  setStatus('idle', 'IDLE');
+  addLog('Queue cleared — analysis stopped', 'info');
+  toast('Queue cleared', 'info');
+}
 
 async function runAnalysis() {
-  const toRun = S.queue.filter(f=>f.selected&&f.status!=='done');
-  if (!toRun.length){toast('No files selected in queue','warn');return;}
+  S.analysisAborted = false;
 
-  const provider = document.getElementById('aiProvider').value;
-  const model    = document.getElementById('aiModel').value;
-  const prompt   = document.getElementById('sysPrompt').value;
-  const apiKey   = document.getElementById('apiKey').value.trim();
-  const ollamaUrl= document.getElementById('ollamaUrl').value.trim();
+  // Reset status on selected files so they can be re-analyzed
+  S.queue.filter(function(f){ return f.selected; })
+         .forEach(function(f){ f.status = 'queued'; f.fallback = false; delete f.errorMsg; });
+  renderQ();  // full render once at start with reset statuses
+
+  var toRun = S.queue.filter(function(f){ return f.selected; });
+  if (!toRun.length) { toast('No files selected in queue', 'warn'); return; }
+
+  var provider  = document.getElementById('aiProvider').value;
+  var model     = document.getElementById('aiModel').value;
+  var prompt    = document.getElementById('sysPrompt').value;
+  var apiKey    = document.getElementById('apiKey').value.trim();
+  var ollamaUrl = document.getElementById('ollamaUrl').value.trim();
+
+  setStatus('running', 'ANALYZING');
+  var runBtn  = document.getElementById('runBtn');
+  var stopBtn = document.getElementById('stopBtn');
+  if (runBtn)  { runBtn.disabled = true; runBtn.textContent = '⏳ Analyzing…'; }
+  if (stopBtn) stopBtn.style.display = 'inline-flex';
+  addLog('Analysis started: ' + toRun.length + ' files · ' + provider + ' · ' + (model || '(none)'), 'ai');
+
+  // Helper: find index of a queue file by path
+  function qIdx(path) {
+    for (var j = 0; j < S.queue.length; j++) {
+      if (S.queue[j].path === path) return j;
+    }
+    return -1;
+  }
+
+  // Helper: apply one result to queue + results array
+  function applyResult(qf, queueIdx, analysis, fallback, errorMsg) {
+    if (analysis) {
+      qf.status   = 'done';
+      qf.fallback = fallback || false;
+      S.results = S.results.filter(function(r){ return r.file.path !== qf.path; });
+      S.results.push(Object.assign({file: qf}, analysis, {fallback: qf.fallback}));
+      S.stats.analyzed++;
+      S.stats.categorized++;
+      // Merge analysis tags into system tag pool
+      (analysis.tags || []).forEach(function(t) {
+        if (t && !S.tags.includes(t)) S.tags.push(t);
+      });
+      // Merge/update category with count
+      var catName = analysis.category;
+      if (catName) {
+        var existing = S.categories.find(function(ct){ return ct.name.toLowerCase() === catName.toLowerCase(); });
+        if (existing) {
+          existing.count = (existing.count || 0) + 1;
+        } else {
+          // Add as a new discovered category with a generated color
+          var autoColors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#ef4444','#84cc16'];
+          var autoColor  = autoColors[S.categories.length % autoColors.length];
+          S.categories.push({id: Date.now() + Math.random(), name: catName, color: autoColor,
+                             kws: [], path: catName, count: 1, auto: true});
+        }
+      }
+      var method = qf.fallback ? '[heuristic]' : '[ai]';
+      var tags   = (analysis.tags || []).join(', ');
+      var conf   = analysis.confidence ? ' (' + Math.round(analysis.confidence * 100) + '%)' : '';
+      var sub    = analysis.subcategory ? '/' + analysis.subcategory : '';
+      addLog(method + ' ' + qf.name + ' → ' + analysis.category + sub + conf + ' [' + tags + ']',
+             qf.fallback ? 'warn' : 'success');
+    } else {
+      qf.status   = 'error';
+      qf.errorMsg = errorMsg || 'unknown error';
+      addLog('✗ ' + qf.name + ': ' + qf.errorMsg, 'error', qf.errorMsg);
+    }
+    updateQItemStatus(queueIdx);
+    persistSession();
+  }
 
   if (!S.serverOnline) {
-    toast('Server offline — using heuristic fallback for all files','warn');
-    addLog('Server offline: using filename-based heuristic classification','warn');
-    for (const qf of toRun) {
-      qf.status='analyzing'; renderQ();
-      await sleep(80);
-      const res = heuristicClassify(qf);
-      qf.status='done'; qf.fallback=true;
-      S.results=S.results.filter(r=>r.file.path!==qf.path);
-      S.results.push({file:qf,...res,fallback:true});
-      addLog(`[heuristic] ${qf.name} → ${res.category}`,'warn');
-      renderQ();
+    // Offline: heuristic one-at-a-time with live updates
+    for (var i = 0; i < toRun.length; i++) {
+      if (S.analysisAborted) { addLog('Analysis aborted', 'warn'); break; }
+      var qf = toRun[i];
+      var qi = qIdx(qf.path);
+      qf.status = 'analyzing';
+      updateQItemStatus(qi);
+      await sleep(60);
+      var res = heuristicClassify(qf);
+      applyResult(qf, qi, res, true, null);
     }
     finishAnalysis();
     return;
   }
 
-  // Route ALL AI calls through the backend server (no CORS issues)
-  setStatus('running','ANALYZING');
-  document.getElementById('runBtn').disabled=true;
-  document.getElementById('runBtn').textContent='⏳ Analyzing…';
-  addLog(`Starting analysis: ${toRun.length} files · ${provider} · ${model}`,'ai');
+  // Mark all selected as 'analyzing' immediately for visual feedback
+  toRun.forEach(function(qf) {
+    qf.status = 'analyzing';
+    updateQItemStatus(qIdx(qf.path));
+  });
 
-  // Batch call to server
   try {
-    const r = await fetch(`${API}/api/analyze`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+    var r = await fetch(API + '/api/analyze', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        files: toRun.map(f=>({path:f.path,name:f.name,type:f.type,size:f.size,modified:f.modified})),
-        provider, model,
+        files:         toRun.map(function(f){ return {path:f.path, name:f.name, type:f.type, size:f.size, modified:f.modified}; }),
+        provider:      provider,
+        model:         model,
         system_prompt: prompt,
-        max_tokens: parseInt(document.getElementById('maxTok').value)||1000,
-        temperature: parseFloat(document.getElementById('tempLbl').textContent)||0.3,
-        ollama_url: ollamaUrl,
-        api_key: apiKey,
+        max_tokens:    parseInt(document.getElementById('maxTok').value) || 1000,
+        temperature:   parseFloat(document.getElementById('tempLbl').textContent) || 0.3,
+        ollama_url:    ollamaUrl,
+        api_key:       apiKey,
       })
     });
-    if (!r.ok) throw new Error(`Server error ${r.status}`);
-    const data = await r.json();
+    if (!r.ok) {
+      var errText = await r.text().catch(function(){ return ''; });
+      throw new Error('Server ' + r.status + (errText ? ': ' + errText.slice(0,200) : ''));
+    }
+    var data = await r.json();
 
-    // Map results back to queue files
-    data.results.forEach(res=>{
-      const qf = toRun.find(f=>f.path===res.file.path);
-      if (qf) {
-        qf.status = res.analysis ? 'done' : 'error';
-        qf.fallback = res.fallback||false;
-        if (res.analysis) {
-          S.results=S.results.filter(r=>r.file.path!==qf.path);
-          S.results.push({file:qf,...res.analysis,fallback:res.fallback});
-          S.stats.analyzed++;S.stats.categorized++;
-          const m = res.fallback ? '[heuristic]' : '[ai]';
-          addLog(`${m} ${qf.name} → [${res.analysis.category}] #${(res.analysis.tags||[]).join(' #')}`,'success');
-        } else {
-          addLog(`✗ ${qf.name}: ${res.error||'unknown error'}`,'error');
-        }
+    (data.results || []).forEach(function(res) {
+      if (S.analysisAborted) return;
+      var qi = qIdx(res.file.path);
+      if (qi < 0) return;
+      var qf = S.queue[qi];
+      applyResult(qf, qi,
+        res.analysis || null,
+        res.fallback || false,
+        res.error || null);
+    });
+
+    // Any still 'analyzing' got no result from server → mark error
+    toRun.forEach(function(qf) {
+      if (qf.status === 'analyzing') {
+        var qi = qIdx(qf.path);
+        applyResult(qf, qi, null, false, 'No result returned by server');
       }
     });
+
   } catch(e) {
-    addLog(`Analysis request failed: ${e.message} — falling back to heuristic`,'error');
-    for (const qf of toRun) {
-      if (qf.status!=='done') {
-        const res=heuristicClassify(qf);
-        qf.status='done';qf.fallback=true;
-        S.results=S.results.filter(r=>r.file.path!==qf.path);
-        S.results.push({file:qf,...res,fallback:true});
-        addLog(`[heuristic] ${qf.name} → ${res.category}`,'warn');
+    var errDetail = e.stack || e.message;
+    addLog('Analysis request failed: ' + e.message + ' — heuristic fallback applied', 'error', errDetail);
+    toRun.forEach(function(qf) {
+      if (qf.status !== 'done') {
+        var qi  = qIdx(qf.path);
+        var res = heuristicClassify(qf);
+        applyResult(qf, qi, res, true, null);
       }
-    }
+    });
   }
+
   finishAnalysis();
 }
 
 function finishAnalysis() {
-  document.getElementById('runBtn').disabled=false;
-  document.getElementById('runBtn').textContent='▶ Run Analysis';
+  var rb = document.getElementById('runBtn');
+  var sb = document.getElementById('stopBtn');
+  if (rb) { rb.disabled = false; rb.textContent = '▶ Run Analysis'; }
+  if (sb) sb.style.display = 'none';
   document.getElementById('rBadge').textContent=S.results.length;
   setStatus('done','DONE');
   renderQ();
@@ -1238,8 +1653,13 @@ function finishAnalysis() {
   renderAnalysisPreview();
   loadAnalyzedToOrg();
   updateStatCards();
-  toast(`Analysis complete — ${S.results.length} file(s) categorized`,'success');
-  addLog(`Analysis done. ${S.results.length} files processed.`,'success');
+  // Refresh categories and tags UI with newly discovered values
+  try { renderCatList(); } catch(e) {}
+  try { renderTagGrid(); } catch(e) {}
+  persistSession();
+  toast('Analysis complete — ' + S.results.length + ' file(s) categorized', 'success');
+  addLog('Analysis done. ' + S.results.length + ' files processed, ' +
+         S.results.filter(function(r){ return !r.fallback; }).length + ' via AI.', 'success');
 }
 
 // Pure-JS heuristic fallback (no server, no AI needed)
@@ -1276,30 +1696,42 @@ function heuristicClassify(file) {
 }
 
 function renderResults() {
-  const el=document.getElementById('rList');
-  if (!S.results.length){el.innerHTML='<div class="es"><div class="ei">📋</div><p>No results yet</p></div>';return;}
-  el.innerHTML=S.results.map(r=>{
-    const cat=S.categories.find(c=>c.name.toLowerCase()===(r.category||'').toLowerCase())||{color:'#64748b'};
-    const fb=r.fallback?'<span style="font-size:10px;color:var(--yellow);margin-left:4px;" title="Heuristic fallback — no AI was used">⚠ heuristic</span>':'';
-    return `<div class="ri">
-      <span class="fi">${r.file.icon}</span>
-      <div class="finfo">
-        <div class="fn">${r.file.name}${fb}</div>
-        <div class="fp">${r.file.path}</div>
-        <div class="fc">
-          <span class="tag" style="border-color:${cat.color};color:${cat.color};background:${cat.color}22;">${r.category}</span>
-          ${r.subcategory?`<span class="tag" style="border-color:var(--border);color:var(--text3);">${r.subcategory}</span>`:''}
-          ${(r.tags||[]).map(t=>`<span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);">#${t}</span>`).join('')}
-        </div>
-        <div class="dp2">${r.suggested_path}/${r.file.name}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;">
-        <div style="font-size:14px;font-weight:700;color:${r.confidence>=0.7?'var(--green2)':'var(--yellow)'};">${Math.round((r.confidence||0)*100)}%</div>
-        <div style="font-size:10px;color:var(--text3);">confidence</div>
-      </div>
-    </div>`;
+  var el = document.getElementById('rList');
+  if (!el) return;
+  if (!S.results.length) {
+    el.innerHTML = '<div class="es"><div class="ei">📋</div><p>No results yet — run analysis first</p></div>';
+    return;
+  }
+  el.innerHTML = S.results.map(function(r) {
+    var catObj  = S.categories.find(function(ct){ return ct.name.toLowerCase() === (r.category||'').toLowerCase(); }) || {color:'#64748b'};
+    var color   = catObj.color || '#64748b';
+    var fb      = r.fallback ? '<span style="font-size:10px;color:var(--yellow);margin-left:4px;" title="Heuristic fallback">⚠ heuristic</span>' : '';
+    var conf    = Math.round((r.confidence || 0) * 100);
+    var confCol = conf >= 70 ? 'var(--green2)' : conf >= 40 ? 'var(--yellow)' : 'var(--red)';
+    var subTag  = r.subcategory
+      ? '<span class="tag" style="border-color:var(--border);color:var(--text3);font-size:11px;">' + r.subcategory + '</span>' : '';
+    var tags = (r.tags || []).map(function(t) {
+      return '<span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);font-size:11px;">#' + t + '</span>';
+    }).join('');
+    return '<div class="ri">' +
+      '<span style="font-size:20px;flex-shrink:0;">' + (r.file.icon || '📄') + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="fn">' + r.file.name + fb + '</div>' +
+        '<div class="fp">' + r.file.path + '</div>' +
+        '<div class="fcats" style="margin-top:3px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;">' +
+          '<span class="tag" style="border-color:' + color + ';color:' + color + ';background:' + color + '22;font-size:11px;font-weight:600;">📁 ' + (r.category || 'Uncategorized') + '</span>' +
+          subTag + tags +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--green2);margin-top:2px;">→ ' + (r.suggested_path || r.category || 'Unsorted') + '/' + r.file.name + '</div>' +
+      '</div>' +
+      '<div style="text-align:right;flex-shrink:0;margin-left:8px;">' +
+        '<div style="font-size:14px;font-weight:700;color:' + confCol + ';">' + conf + '%</div>' +
+        '<div style="font-size:10px;color:var(--text3);">confidence</div>' +
+      '</div>' +
+      '</div>';
   }).join('');
 }
+
 
 function renderAnalysisPreview() {
   const dest=document.getElementById('destRoot').value||'C:\\Organized';
@@ -1336,49 +1768,94 @@ function exportPlan() {
 // ORGANIZE
 // ================================================================
 function structChange() {
-  document.getElementById('custTplG').style.display=document.getElementById('structMode').value==='custom'?'block':'none';
+  document.getElementById('custTplG').style.display = document.getElementById('structMode').value === 'custom' ? 'block' : 'none';
+  buildPreview();
+  if (S.pending.length) renderPending();
 }
 
+function structModeChange() {
+  structChange();
+}
+
+
 function loadAllToOrg() {
-  if(!S.files.length){toast('Scan files first','warn');return;}
-  S.pending=S.files.map(f=>{
-    const r=S.results.find(x=>x.file.path===f.path);
-    return {file:f,category:r?.category||'Unsorted',suggested_path:r?.suggested_path||'Unsorted',tags:r?.tags||[],selected:true};
+  if (!S.files.length) { toast('Scan files first — go to Explorer and click Scan', 'warn'); return; }
+  S.pending = S.files.map(function(f) {
+    var r = S.results.find(function(x){ return x.file.path === f.path; });
+    return {
+      file: f,
+      category: (r && r.category) || 'Unsorted',
+      suggested_path: (r && r.suggested_path) || ('Unsorted/' + (f.type || 'other').toUpperCase()),
+      tags: (r && r.tags) || [],
+      selected: true,
+      fallback: !(r)
+    };
   });
   renderPending();
-  toast(`${S.pending.length} files loaded`,'info');
+  buildPreview();
+  updateOrgSel();
+  document.getElementById('pendBadge').textContent = S.pending.length;
+  addLog('Loaded ' + S.pending.length + ' files into organizer', 'info');
+  toast(S.pending.length + ' files loaded', 'success');
 }
 
 function loadAnalyzedToOrg() {
-  if(!S.results.length){if(S.pending.length===0)toast('Run analysis first','warn');return;}
-  S.pending=S.results.map(r=>({file:r.file,category:r.category,suggested_path:r.suggested_path,tags:r.tags||[],selected:true}));
+  if (!S.results.length) {
+    toast('No analysis results yet — run analysis first', 'warn');
+    return;
+  }
+  S.pending = S.results.map(function(r) {
+    return {
+      file: r.file,
+      category: r.category || 'Unsorted',
+      suggested_path: r.suggested_path || r.category || 'Unsorted',
+      tags: r.tags || [],
+      selected: true,
+      fallback: r.fallback || false
+    };
+  });
   renderPending();
-  document.getElementById('pendBadge').textContent=S.pending.length;
+  buildPreview();
+  updateOrgSel();
+  document.getElementById('pendBadge').textContent = S.pending.length;
+  addLog('Loaded ' + S.pending.length + ' analyzed files into organizer', 'info');
+  toast(S.pending.length + ' analyzed files loaded', 'success');
 }
 
 function renderPending() {
-  document.getElementById('pendBadge').textContent=S.pending.length;
-  const dest=document.getElementById('orgDest').value||'C:\\Organized';
-  const sm=document.getElementById('structMode').value;
-  const el=document.getElementById('pendList');
-  if(!S.pending.length){el.innerHTML='<div class="es"><div class="ei">⏳</div><p>Click "Load Analyzed" or "Load All Scanned" above</p></div>';updateOrgSel();return;}
-  el.innerHTML=S.pending.map((op,i)=>{
-    const sp=resolveStructPath(op,sm);
-    const dp=`${dest}\\${sp}\\${op.file.name}`;
-    const tags=(op.tags||[]).map(t=>`<span class="tag" style="border-color:var(--border2);color:var(--accent2);font-size:10px;">#${t}</span>`).join('');
-    return `<div class="ri" id="pnd-${i}">
-      <input type="checkbox" ${op.selected?'checked':''} onchange="S.pending[${i}].selected=this.checked;updateOrgSel()">
-      <span class="fi">${op.file.icon}</span>
-      <div class="finfo">
-        <div class="fn">${op.file.name}</div>
-        <div class="fp">${op.file.path}</div>
-        <div class="fc" style="margin-top:3px;"><span class="tag" style="border-color:var(--border);color:var(--text3);font-size:10px;">${op.category}</span>${tags}</div>
-        <div class="dp2">${dp}</div>
-      </div>
-    </div>`;
+  var badge = document.getElementById('pendBadge');
+  if (badge) badge.textContent = S.pending.length;
+  var dest = document.getElementById('orgDest').value || 'C:\\Organized';
+  var sm   = document.getElementById('structMode').value;
+  var el   = document.getElementById('pendList');
+  if (!el) return;
+  if (!S.pending.length) {
+    el.innerHTML = '<div class="es"><div class="ei">⏳</div><p>Load analyzed files or all scanned files above</p></div>';
+    updateOrgSel(); return;
+  }
+  el.innerHTML = S.pending.map(function(op, i) {
+    var sp      = resolveStructPath(op, sm);
+    var dp      = dest + '\\' + sp.replace(/\//g,'\\') + '\\' + op.file.name;
+    var catObj  = S.categories.find(function(ct){ return ct.name.toLowerCase() === (op.category||'').toLowerCase(); }) || {color:'#64748b'};
+    var color   = catObj.color || '#64748b';
+    var catChip = '<span class="tag" style="border-color:' + color + ';color:' + color + ';background:' + color + '22;font-size:10px;font-weight:600;">📁 ' + (op.category||'Unsorted') + '</span>';
+    var tags    = (op.tags||[]).map(function(t) {
+      return '<span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);font-size:10px;">#' + t + '</span>';
+    }).join('');
+    var fb = op.fallback ? '<span style="color:var(--yellow);font-size:10px;"> ⚠</span>' : '';
+    return '<div class="ri">' +
+      '<input type="checkbox" ' + (op.selected?'checked':'') + ' onchange="S.pending['+i+'].selected=this.checked;updateOrgSel();buildPreview()">' +
+      '<span style="font-size:18px;flex-shrink:0;">' + (op.file.icon||'📄') + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="fn">' + op.file.name + fb + '</div>' +
+        '<div class="fp">' + op.file.path + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;">' + catChip + tags + '</div>' +
+        '<div style="font-size:11px;color:var(--green2);margin-top:2px;">→ ' + dp + '</div>' +
+      '</div></div>';
   }).join('');
   updateOrgSel();
 }
+
 
 function resolveStructPath(op, sm) {
   if (sm==='category') return op.category||'Unsorted';
@@ -1403,7 +1880,15 @@ function resolveStructPath(op, sm) {
       .replace('{type}',op.file.type||'other')
       .replace('{filename}',op.file.name);
   }
-  return op.suggested_path||op.category||'Unsorted'; // 'ai'
+  if (sm === 'tags') {
+    var tagList = (op.tags || []).filter(function(t){ return t && t.trim(); });
+    if (!tagList.length) return op.category || 'Unsorted';
+    // Use first tag as top-level folder, second tag as subfolder (if present)
+    var p1 = tagList[0].charAt(0).toUpperCase() + tagList[0].slice(1).replace(/[-_]/g,' ');
+    var p2 = tagList[1] ? (tagList[1].charAt(0).toUpperCase() + tagList[1].slice(1).replace(/[-_]/g,' ')) : '';
+    return p2 ? p1 + '/' + p2 : p1;
+  }
+  return op.suggested_path || op.category || 'Unsorted'; // 'ai'
 }
 
 function updateOrgSel() {
@@ -1413,7 +1898,12 @@ function updateOrgSel() {
   m.indeterminate=s>0&&s<S.pending.length; m.checked=s===S.pending.length&&S.pending.length>0;
 }
 
-function orgSelAll(v){S.pending.forEach(p=>p.selected=v);renderPending();}
+function orgSelAll(v) {
+  S.pending.forEach(function(p){ p.selected = v; });
+  renderPending();
+  updateOrgSel();
+  buildPreview();
+}
 
 function filterOrg(q) {
   const l=q.toLowerCase();
@@ -1423,146 +1913,206 @@ function filterOrg(q) {
   });
 }
 
-function refreshPreview() {
-  renderPending();
-  const sm=document.getElementById('structMode').value;
-  const dest=document.getElementById('orgDest').value||'C:\\Organized';
-  const el=document.getElementById('structPrev');
-  if(!S.pending.length){el.innerHTML='<div class="es"><div class="ei">🗂</div><p>Load files first</p></div>';return;}
+// buildPreview: always-visible live tree in left panel
+function buildPreview() {
+  var el = document.getElementById('structPrev');
+  var ct = document.getElementById('prevFileCount');
+  if (!el) return;
 
-  // Build tree
-  const tree={};
-  S.pending.forEach(op=>{
-    if(!op.selected)return;
-    const sp=resolveStructPath(op,sm);
-    const parts=sp.split('/').filter(Boolean);
-    let node=tree;
-    for(const pt of parts){
-      if(!node[pt])node[pt]={_files:[],_sub:{}};
-      node=node[pt]._sub;
-    }
-    const leaf=parts.reduce((n,pt)=>n[pt],tree);
-    if(leaf)leaf._files.push(op.file.name);
+  var sm   = document.getElementById('structMode').value;
+  var dest = (document.getElementById('orgDest').value || 'C:\\Organized').replace(/[\/\\]+$/, '');
+  var sel  = S.pending.filter(function(p){ return p.selected; });
+
+  if (!sel.length) {
+    el.innerHTML = '<div class="es" style="padding:16px;"><div class="ei" style="font-size:20px;">🗂</div><p>Load files to see preview</p></div>';
+    if (ct) ct.textContent = '';
+    return;
+  }
+
+  if (ct) ct.textContent = sel.length + ' file' + (sel.length !== 1 ? 's' : '');
+
+  // Build nested folder tree
+  var tree = {};
+  sel.forEach(function(op) {
+    var sp    = resolveStructPath(op, sm).replace(/\\/g, '/');
+    var parts = sp.split('/').filter(Boolean);
+    if (!parts.length) parts = ['Unsorted'];
+    var cur = tree;
+    parts.forEach(function(pt) {
+      if (!cur[pt]) cur[pt] = { _files: [], _sub: {} };
+      cur = cur[pt];
+    });
+    cur._files.push(op.file.name);
   });
 
-  function renderNode(node, depth, pathSoFar) {
-    let html='';
-    for(const[name,val]of Object.entries(node)){
-      const indent='  '.repeat(depth);
-      const fullPath=`${dest}\\${pathSoFar?pathSoFar+'\\':''}${name}`;
-      html+=`<div style="margin-left:${depth*20}px;" class="tree-dir">📁 ${name} <span style="color:var(--text3);font-size:10px;">${fullPath}</span></div>`;
-      if(val._files){
-        val._files.forEach(f=>{ html+=`<div style="margin-left:${(depth+1)*20}px;" class="tree-file">📄 ${f}</div>`; });
-      }
-      if(val._sub)html+=renderNode(val._sub,depth+1,pathSoFar?`${pathSoFar}\\${name}`:name);
-    }
+  function renderTree(node, depth) {
+    var html = '';
+    var pad  = depth * 14;
+    Object.keys(node).sort().forEach(function(name) {
+      var n  = node[name];
+      var fc = n._files.length;
+      html += '<div style="margin-left:' + pad + 'px;padding:2px 0;display:flex;align-items:center;gap:4px;">' +
+        '<span style="color:var(--accent2);font-size:13px;">📁</span>' +
+        '<span style="color:var(--accent2);font-weight:600;">' + name + '</span>' +
+        (fc ? '<span style="color:var(--text3);font-size:10px;margin-left:2px;">(' + fc + ')</span>' : '') +
+        '</div>';
+      n._files.forEach(function(fname) {
+        html += '<div style="margin-left:' + (pad+14) + 'px;padding:1px 0;display:flex;align-items:center;gap:4px;">' +
+          '<span style="color:var(--text3);font-size:12px;">📄</span>' +
+          '<span style="color:var(--text3);font-size:10px;">' + fname + '</span></div>';
+      });
+      if (Object.keys(n._sub).length) html += renderTree(n._sub, depth + 1);
+    });
     return html;
   }
-  el.innerHTML=`<div class="tree-preview"><div class="tree-dir" style="font-size:13px;margin-bottom:10px;color:var(--accent2);">📁 ${dest}</div>${renderNode(tree,0,'')}</div>`;
+
+  el.innerHTML =
+    '<div style="padding:4px 2px;">' +
+    '<div style="display:flex;align-items:center;gap:4px;padding:3px 0;margin-bottom:4px;border-bottom:1px solid var(--border);">' +
+    '<span style="color:var(--accent);font-size:13px;">📁</span>' +
+    '<span style="color:var(--accent);font-weight:700;font-size:11px;">' + dest + '</span></div>' +
+    renderTree(tree, 0) +
+    '</div>';
 }
 
-async function execOrg() {
-  const sel=S.pending.filter(p=>p.selected);
-  if(!sel.length){toast('Select files to organize','warn');return;}
-  const isDry=document.getElementById('dryRun').checked;
-  const mode=document.getElementById('opMode').value;
-  const dest=document.getElementById('orgDest').value||'C:\\Organized';
-  const sm=document.getElementById('structMode').value;
+// Keep refreshPreview as alias so old calls still work
+function refreshPreview() { buildPreview(); }
 
-  document.getElementById('execBody').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-      <div class="sc"><div class="lbl">Files</div><div class="val hl">${sel.length}</div></div>
-      <div class="sc"><div class="lbl">Operation</div><div class="val" style="font-size:15px;">${mode==='copy'?'📋 Copy':'✂ Move'}</div></div>
-      <div class="sc"><div class="lbl">Destination</div><div class="val" style="font-size:11px;word-break:break-all;">${dest}</div></div>
-      <div class="sc"><div class="lbl">Mode</div><div class="val" style="font-size:14px;color:${isDry?'var(--yellow)':'var(--green2)'};">${isDry?'🔍 DRY RUN':'⚡ LIVE'}</div></div>
-    </div>
-    ${!isDry?`<div class="wb">⚠ This will actually ${mode} files on your system! Directories will be created automatically.</div>`:''}`;
+
+async function execOrg() {
+  var sel   = S.pending.filter(function(p){ return p.selected; });
+  if (!sel.length) { toast('Select files to organize', 'warn'); return; }
+  var isDry = document.getElementById('dryRun').checked;
+  var mode  = document.getElementById('opMode').value;
+  var dest  = document.getElementById('orgDest').value || 'C:\\Organized';
+
+  var dryNote = isDry
+    ? '<div style="background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.4);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--yellow);">'+
+      '⚠ <b>Dry Run is ON</b> — no files will be moved. Uncheck "Dry Run" in settings to actually ' + mode + ' files.</div>'
+    : '<div style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--red);">'+
+      '⚡ <b>LIVE MODE</b> — files will actually be ' + (mode==='copy'?'copied':'moved') + ' on your disk.</div>';
+
+  document.getElementById('execBody').innerHTML =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">' +
+      '<div class="sc"><div class="lbl">Files</div><div class="val hl">' + sel.length + '</div></div>' +
+      '<div class="sc"><div class="lbl">Operation</div><div class="val" style="font-size:15px;">' + (mode==='copy'?'📋 Copy':'✂ Move') + '</div></div>' +
+      '<div class="sc" style="grid-column:span 2;"><div class="lbl">Destination</div><div style="font-size:11px;color:var(--accent2);word-break:break-all;margin-top:2px;">' + dest + '</div></div>' +
+    '</div>' + dryNote;
   openM('mExec');
 }
 
 async function doExec() {
   closeM('mExec');
-  const sel=S.pending.filter(p=>p.selected);
-  const isDry=document.getElementById('dryRun').checked;
-  const mode=document.getElementById('opMode').value;
-  const dest=document.getElementById('orgDest').value||'C:\\Organized';
-  const sm=document.getElementById('structMode').value;
-  const conflict=document.getElementById('conflictMode').value;
-  const fill=document.getElementById('orgFill');
-  const prog=document.getElementById('orgProg');
+  var sel    = S.pending.filter(function(p){ return p.selected; });
+  var isDry  = document.getElementById('dryRun').checked;
+  var mode   = document.getElementById('opMode').value;
+  var dest   = (document.getElementById('orgDest').value || 'C:\\Organized');
+  var sm     = document.getElementById('structMode').value;
+  var conflict = document.getElementById('conflictMode') ? document.getElementById('conflictMode').value : 'rename';
+  var fill   = document.getElementById('orgFill');
+  var prog   = document.getElementById('orgProg');
 
-  setStatus('running','ORGANIZING');
-  addLog(`${isDry?'[DRY RUN] ':''}${mode} ${sel.length} files → ${dest}`,'info');
+  if (!sel.length) { toast('No files selected', 'warn'); return; }
 
-  const done=[],failed=[];
+  setStatus('running', 'ORGANIZING');
+  addLog((isDry ? '[DRY RUN] ' : '') + mode + ' ' + sel.length + ' files → ' + dest, 'info');
+
+  var done = [], failed = [];
 
   if (S.serverOnline && !isDry) {
-    // Server handles actual file operations (creates dirs, copies/moves)
+    // Real file operations via server
     try {
-      const ops=sel.map(op=>({
-        file:{path:op.file.path,name:op.file.name,type:op.file.type,modified:op.file.modified},
-        category:op.category,
-        suggested_path:resolveStructPath(op,sm),
-      }));
-      const r=await fetch(`${API}/api/organize`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({operations:ops,operation:mode,dry_run:isDry,dest_root:dest,conflict,struct_mode:sm})});
-      if(!r.ok)throw new Error(`Server error ${r.status}`);
-      const data=await r.json();
-      data.results.forEach((res,i)=>{
-        fill.style.width=Math.round(((i+1)/data.results.length)*100)+'%';
-        prog.textContent=`${mode==='copy'?'Copying':'Moving'}: ${sel[i]?.file.name||''} (${i+1}/${sel.length})`;
-        if(res.status==='success'||res.status==='dry_run'){
-          done.push({...sel[i],destPath:res.destination});
-          addLog(`✓ ${sel[i]?.file.name} → ${res.destination}`,'success');
+      var ops = sel.map(function(op) {
+        return {
+          file: { path: op.file.path, name: op.file.name, type: op.file.type, modified: op.file.modified },
+          category: op.category,
+          suggested_path: resolveStructPath(op, sm),
+        };
+      });
+      var r = await fetch(API + '/api/organize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operations: ops, operation: mode, dry_run: false,
+                               dest_root: dest, conflict: conflict, struct_mode: sm })
+      });
+      if (!r.ok) throw new Error('Server error ' + r.status);
+      var data = await r.json();
+      data.results.forEach(function(res, i) {
+        if (fill) fill.style.width = Math.round(((i+1) / data.results.length) * 100) + '%';
+        var fname = sel[i] ? sel[i].file.name : '';
+        if (prog) prog.textContent = (mode === 'copy' ? 'Copying' : 'Moving') + ': ' + fname + ' (' + (i+1) + '/' + sel.length + ')';
+        if (res.status === 'success') {
+          done.push(Object.assign({}, sel[i], { destPath: res.destination }));
+          addLog('✓ ' + fname + ' → ' + res.destination, 'success');
+        } else if (res.status === 'skipped') {
+          addLog('⊘ skipped: ' + fname, 'warn');
         } else {
           failed.push(sel[i]);
-          addLog(`✗ ${sel[i]?.file.name}: ${res.error}`,'error');
+          addLog('✗ ' + fname + ': ' + (res.error || 'unknown error'), 'error');
         }
       });
     } catch(e) {
-      addLog('Organize server error: '+e.message,'error');
-      toast('Server error during organize: '+e.message,'error');
+      addLog('Execute error: ' + e.message, 'error');
+      toast('Error: ' + e.message, 'error');
     }
   } else {
-    // Simulate (dry run or server offline)
-    for(let i=0;i<sel.length;i++){
-      const op=sel[i];
-      fill.style.width=Math.round(((i+1)/sel.length)*100)+'%';
-      const sp=resolveStructPath(op,sm);
-      const dp=`${dest}\\${sp}\\${op.file.name}`;
-      prog.textContent=`${isDry?'[DRY] ':''}${mode==='copy'?'Copying':'Moving'}: ${op.file.name} (${i+1}/${sel.length})`;
-      addLog(`${isDry?'[DRY] ':''}${mode}: ${op.file.name} → ${dp}`,'success');
-      done.push({...op,destPath:dp});
-      await sleep(40);
+    // Dry run OR server offline → simulate with progress
+    for (var i = 0; i < sel.length; i++) {
+      var op = sel[i];
+      var sp = resolveStructPath(op, sm);
+      var dp = dest + '\\' + sp.replace(/\//g, '\\') + '\\' + op.file.name;
+      if (fill) fill.style.width = Math.round(((i+1) / sel.length) * 100) + '%';
+      if (prog) prog.textContent = (isDry ? '[DRY] ' : '') + (mode === 'copy' ? 'Copying' : 'Moving') + ': ' + op.file.name + ' (' + (i+1) + '/' + sel.length + ')';
+      addLog((isDry ? '[DRY RUN] ' : '[OFFLINE] ') + mode + ': ' + op.file.name + ' → ' + dp, isDry ? 'warn' : 'info');
+      done.push(Object.assign({}, op, { destPath: dp }));
+      await sleep(30);
+    }
+    if (!isDry && !S.serverOnline) {
+      toast('Server offline — operation simulated only, no files were moved', 'warn');
     }
   }
 
-  fill.style.width='100%';
-  prog.textContent=`✓ ${isDry?'Dry run':'Operation'} complete: ${done.length} ${mode==='copy'?'copied':'moved'}${failed.length?`, ${failed.length} failed`:''}`;
-  S.pending=S.pending.filter(p=>!p.selected);
+  if (fill) fill.style.width = '100%';
+  var summary = (isDry ? 'Dry run' : 'Done') + ': ' + done.length + ' file(s)' + (failed.length ? ', ' + failed.length + ' failed' : '');
+  if (prog) prog.textContent = '✓ ' + summary;
+
+  // Remove completed files from pending
+  var donePaths = done.map(function(d){ return d.file.path; });
+  if (!isDry) S.pending = S.pending.filter(function(p){ return donePaths.indexOf(p.file.path) < 0; });
   renderPending();
-  document.getElementById('compBadge').textContent=done.length;
-  document.getElementById('failBadge').textContent=failed.length;
+  buildPreview();
 
-  if(done.length){
-    document.getElementById('compList').innerHTML=done.map(op=>`
-      <div class="ri"><span class="fi">${op.file.icon}</span>
-        <div class="finfo"><div class="fn">${op.file.name}</div><div class="dp2">${op.destPath}</div></div>
-        <span style="color:var(--green2);font-size:11px;">✓ ${mode==='copy'?'Copied':'Moved'}</span></div>`).join('');
+  var compBadge = document.getElementById('compBadge');
+  var failBadge = document.getElementById('failBadge');
+  if (compBadge) compBadge.textContent = done.length;
+  if (failBadge) failBadge.textContent = failed.length;
+
+  if (done.length) {
+    var compList = document.getElementById('compList');
+    if (compList) compList.innerHTML = done.map(function(op) {
+      return '<div class="ri"><span style="font-size:18px;">' + (op.file.icon||'📄') + '</span>' +
+        '<div style="flex:1;min-width:0;"><div class="fn">' + op.file.name + '</div>' +
+        '<div style="font-size:11px;color:var(--green2);">→ ' + op.destPath + '</div></div>' +
+        '<span style="color:var(--green2);font-size:11px;">✓ ' + (mode==='copy'?'Copied':'Moved') + '</span></div>';
+    }).join('');
+    oTab('completed');
   }
-  if(failed.length){
-    document.getElementById('failList').innerHTML=failed.map(op=>`
-      <div class="ri"><span class="fi">${op.file.icon}</span>
-        <div class="finfo"><div class="fn">${op.file.name}</div></div>
-        <span style="color:var(--red);font-size:11px;">✗ Failed</span></div>`).join('');
+  if (failed.length) {
+    var failList = document.getElementById('failList');
+    if (failList) failList.innerHTML = failed.map(function(op) {
+      return '<div class="ri"><span style="font-size:18px;">' + (op.file.icon||'📄') + '</span>' +
+        '<div style="flex:1;min-width:0;"><div class="fn">' + op.file.name + '</div></div>' +
+        '<span style="color:var(--red);font-size:11px;">✗ Failed</span></div>';
+    }).join('');
   }
 
-  S.stats.moved+=done.length;
+  S.stats.moved += done.length;
   updateStatCards();
-  setStatus('done','DONE');
-  toast(`${isDry?'Dry run':'Done'}: ${done.length} file(s)`,'success');
-  addOpsToTable(done,mode,isDry);
+  setStatus('done', 'DONE');
+  toast(summary, done.length > 0 ? 'success' : 'warn');
+  addOpsToTable(done, mode, isDry);
 }
+
 
 function addOpsToTable(ops,mode,dryRun) {
   const b=document.getElementById('opsBody');
@@ -1596,26 +2146,29 @@ function renderCatList() {
 }
 
 function showCatDet(i) {
-  const c=S.categories[i];
-  document.querySelectorAll('#catList .ti').forEach((el,j)=>el.classList.toggle('sel',j===i));
-  document.getElementById('catDetail').innerHTML=`
-    <div style="padding:16px;">
-      <div class="row sb" style="margin-bottom:16px;">
-        <div><div style="font-family:var(--sans);font-size:16px;font-weight:700;color:${c.color};">${c.name}</div>
-          <div style="font-size:11px;color:var(--text3);">Path: ${c.path}</div></div>
-        <button class="btn btn-d btn-sm" onclick="deleteCat(${i})">🗑 Delete</button>
-      </div>
-      <div class="fg"><label>Keywords</label>
-        <div class="tc-wrap">${c.kws.map((kw,ki)=>`
-          <span class="tag" style="border-color:${c.color};color:${c.color};background:${c.color}22;">
-            ${kw}<span class="tr" onclick="removeCatKw(${i},${ki})">×</span></span>`).join('')}
-        </div>
-        <div class="ci">
-          <input type="text" id="catKI${i}" placeholder="Add keyword…" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatKwI(${i});}">
-          <button class="btn btn-g btn-sm" onclick="addCatKwI(${i})">Add</button>
-        </div>
-      </div>
-    </div>`;
+  var cat = S.categories[i];
+  document.querySelectorAll('#catList .ti').forEach(function(el,j){ el.classList.toggle('sel', j===i); });
+  var kwHtml = (cat.kws||[]).map(function(kw,ki){
+    return '<span class="tag" style="border-color:'+cat.color+';color:'+cat.color+';background:'+cat.color+'22;">'+
+      kw+'<span class="tr" onclick="removeCatKw('+i+','+ki+')">×</span></span>';
+  }).join('');
+  document.getElementById('catDetail').innerHTML =
+    '<div style="padding:16px;">' +
+    '<div class="row sb" style="margin-bottom:16px;">' +
+      '<div><div style="font-family:var(--sans);font-size:16px;font-weight:700;color:'+cat.color+';">'+cat.name+'</div>' +
+      '<div style="font-size:11px;color:var(--text3);">Path: '+(cat.path||'')+'</div></div>' +
+      '<button class="btn btn-d btn-sm" onclick="deleteCat('+i+')">🗑 Delete</button>' +
+    '</div>' +
+    '<div class="fg"><label>Keywords</label>' +
+      '<div class="tc-wrap">'+kwHtml+'</div>' +
+      '<div class="ci">' +
+        '<input type="text" id="catKI'+i+'" placeholder="Add keyword" data-ci="'+i+'">' +
+        '<button class="btn btn-g btn-sm" onclick="addCatKwI('+i+')">Add</button>' +
+      '</div>' +
+    '</div></div>';
+  // Wire Enter key after innerHTML set
+  var inp = document.getElementById('catKI'+i);
+  if (inp) inp.addEventListener('keydown', function(e){ if(e.key==='Enter'){e.preventDefault();addCatKwI(i);} });
 }
 
 function addCatKwI(i) {
@@ -1633,7 +2186,12 @@ async function autoGenCats(){toast('Generating categories…','info');await slee
 let _newCatKws=[];
 function openAddCatM(){_newCatKws=[];S.color='#3b82f6';document.getElementById('newCatName').value='';document.getElementById('newCatPath').value='';document.getElementById('newCatKwIn').value='';document.getElementById('newCatKwEl').innerHTML='';document.querySelectorAll('#colorPicker .sw').forEach((s,i)=>s.classList.toggle('sel',i===0));openM('mAddCat');}
 function addCatKw(){const v=document.getElementById('newCatKwIn').value.trim();if(!v)return;_newCatKws.push(v);document.getElementById('newCatKwIn').value='';renderNewCatKws();}
-function renderNewCatKws(){document.getElementById('newCatKwEl').innerHTML=_newCatKws.map((kw,i)=>`<span class="tag" style="border-color:var(--accent);color:var(--accent2);background:rgba(59,130,246,.1);">${kw}<span class="tr" onclick="_newCatKws.splice(${i},1);renderNewCatKws()">×</span></span>`).join('');}
+function renderNewCatKws() {
+  document.getElementById('newCatKwEl').innerHTML = _newCatKws.map(function(kw,i){
+    return '<span class="tag" style="border-color:var(--accent);color:var(--accent2);background:rgba(59,130,246,.1);">'+
+      kw+'<span class="tr" onclick="_newCatKws.splice('+i+',1);renderNewCatKws()">×</span></span>';
+  }).join('');
+}
 function saveCat(){const n=document.getElementById('newCatName').value.trim();if(!n){toast('Name required','error');return;}S.categories.push({id:Date.now(),name:n,color:S.color,kws:[..._newCatKws],path:document.getElementById('newCatPath').value||n,count:0});renderCatList();closeM('mAddCat');toast(`Category "${n}" created`,'success');}
 function pickC(el){document.querySelectorAll('#colorPicker .sw').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');S.color=el.dataset.c;}
 
@@ -1643,11 +2201,12 @@ function pickC(el){document.querySelectorAll('#colorPicker .sw').forEach(s=>s.cl
 async function loadTagsFromServer() {
   if (!S.serverOnline) return;
   try {
-    const r=await fetch(`${API}/api/tags`);
-    if(r.ok){const d=await r.json();S.tags=d.tags||[];}
-  } catch(e){}
-  renderTagGrid();
-  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+    var r = await fetch(API + '/api/tags');
+    if (r.ok) { var d = await r.json(); S.tags = d.tags || []; }
+  } catch(e) {}
+  try { renderTagGrid(); } catch(e) {}
+  var tc = document.getElementById('tagCount');
+  if (tc) tc.textContent = S.tags.length + ' tags';
 }
 
 async function saveTagsToServer() {
@@ -1681,16 +2240,22 @@ function bulkImportTags() {
 }
 
 function renderTagGrid() {
-  const el=document.getElementById('tagGrid');
-  const q=(document.getElementById('tagSearch')?.value||'').toLowerCase();
-  const tags=S.tags.filter(t=>!q||t.includes(q));
-  if(!tags.length){el.innerHTML='<div class="es" style="padding:24px;"><p>No tags yet. Add some above.</p></div>';return;}
-  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;">${tags.map(t=>`
-    <span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);padding:4px 10px;cursor:default;">
-      #${t}
-      <span class="tr" onclick="deleteTag('${t}')">×</span>
-    </span>`).join('')}</div>`;
-  document.getElementById('tagCount').textContent=`${S.tags.length} tags`;
+  var el = document.getElementById('tagGrid');
+  var tc = document.getElementById('tagCount');
+  if (!el) return;
+  var q = (document.getElementById('tagSearch') ? document.getElementById('tagSearch').value : '').toLowerCase();
+  var tags = S.tags.filter(function(t){ return !q || t.includes(q); });
+  if (!tags.length) {
+    el.innerHTML = '<div class="es" style="padding:24px;"><p>No tags yet. Add some above.</p></div>';
+    if (tc) tc.textContent = '0 tags';
+    return;
+  }
+  el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+    tags.map(function(t){
+      return '<span class="tag" style="border-color:var(--border2);color:var(--accent2);background:rgba(59,130,246,.08);padding:4px 10px;cursor:default;">' +
+        '#'+t+'<span class="tr" onclick="deleteTag('+JSON.stringify(t)+')">×</span></span>';
+    }).join('') + '</div>';
+  if (tc) tc.textContent = S.tags.length + ' tags';
 }
 
 function filterTags(q){renderTagGrid();}
@@ -1829,7 +2394,8 @@ function syncOllamaUrl(from) {
   document.getElementById(from==='ai'?'ollamaUrl':'aiOllamaUrl').value=v;
 }
 
-function toggleKey(){const e=document.getElementById('apiKey');e.type=e.type==='password'?'text':'password';}
+function toggleKey(){var e=document.getElementById('apiKey');e.type=e.type==='password'?'text':'password';}
+function toggleOllamaKey(){var e=document.getElementById('ollamaApiKey');if(e)e.type=e.type==='password'?'text':'password';}
 
 async function testAIConn() {
   if(!S.serverOnline){toast('Server offline — cannot test connection','error');return;}
@@ -1958,20 +2524,47 @@ async function deleteOllamaModel(name) {
 }
 
 async function saveAllSettings() {
+  var apiKeyVal = (document.getElementById('apiKey').value || '').trim();
+  if (apiKeyVal) localStorage.setItem('afo_apikey', apiKeyVal);
+  else localStorage.removeItem('afo_apikey');
+
+  // Save AI model settings to localStorage so they survive offline sessions
+  var lsCfg = {
+    ai_provider: (document.getElementById('aiProvider')||{}).value||'anthropic',
+    ai_model:    (document.getElementById('aiModel')||{}).value||'',
+    ollama_url:  (document.getElementById('ollamaUrl')||{}).value||'http://localhost:11434',
+    temperature: (document.getElementById('tempSlider')||{}).value||'0.3',
+    max_tokens:  (document.getElementById('maxTok')||{}).value||'1000',
+  };
+  localStorage.setItem('afo_settings', JSON.stringify(lsCfg));
+  var el = function(id){ return document.getElementById(id); };
+  var gv = function(id,fb){ var e=el(id); return e ? e.value : fb; };
+
   const cfg={
-    system_prompt:document.getElementById('sysPrompt').value,
-    max_tokens:parseInt(document.getElementById('maxTok').value)||1000,
-    temperature:parseFloat(document.getElementById('tempLbl').textContent)||0.3,
-    batch_size:parseInt(document.getElementById('batchSz').value)||5,
-    timeout:parseInt(document.getElementById('timeoutSec').value)||30,
-    port:parseInt(document.getElementById('cfgPort').value)||8765,
-    log_path:document.getElementById('cfgLogPath').value,
-    log_level:document.getElementById('cfgLogLevel').value,
-    max_preview_bytes:parseInt(document.getElementById('cfgPreviewBytes').value)||4096,
-    dest_root:document.getElementById('destRoot').value,
-    file_types:S.fileTypes,
-    providers:S.providers,
-    tags:S.tags,
+    // AI model settings
+    ai_provider:    gv('aiProvider','anthropic'),
+    ai_model:       gv('aiModel',''),
+    ollama_url:     gv('ollamaUrl','http://localhost:11434'),
+    ollama_api_key: gv('ollamaApiKey',''),
+    // Parameters
+    system_prompt:  gv('sysPrompt',''),
+    max_tokens:     parseInt(gv('maxTok','1000'))||1000,
+    temperature:    parseFloat((el('tempLbl')||{}).textContent||'0.3')||0.3,
+    batch_size:     parseInt(gv('batchSz','5'))||5,
+    timeout:        parseInt(gv('timeoutSec','30'))||30,
+    // Server / system
+    port:           parseInt(gv('cfgPort','8765'))||8765,
+    log_path:       gv('cfgLogPath',''),
+    log_level:      gv('cfgLogLevel','INFO'),
+    max_preview_bytes: parseInt(gv('cfgPreviewBytes','4096'))||4096,
+    // Destinations
+    dest_root:      gv('destRoot','C:\\Organized'),
+    // Keys
+    api_key:        apiKeyVal,
+    // Data
+    file_types:     S.fileTypes,
+    providers:      S.providers,
+    tags:           S.tags,
   };
   if(S.serverOnline){
     try{await fetch(`${API}/api/config`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});}
@@ -2012,40 +2605,57 @@ async function clearDb(){if(!confirm('Clear all database records?'))return;if(!S
 // ================================================================
 // BROWSE MODAL
 // ================================================================
+// Delegated clicks for browse dialog (avoids inline onclick quoting issues)
+document.addEventListener('click', function(e) {
+  var drv = e.target.closest ? e.target.closest('[data-browse-path]') : null;
+  if (drv && drv.dataset.browsePath !== undefined) { loadBrowse(drv.dataset.browsePath); }
+});
+
 function openBrowse(targetId) {
-  S.browseTarget=targetId;
-  const current=document.getElementById(targetId)?.value||'';
-  loadBrowse(current||'');
+  S.browseTarget = targetId;
+  var cur = document.getElementById(targetId) ? document.getElementById(targetId).value : '';
+  S.browseCurrent = cur;
+  loadBrowse(cur || '');
   openM('mBrowse');
 }
 
 async function loadBrowse(path) {
-  if(!S.serverOnline){
-    // Show a simple text input hint when server is offline
-    document.getElementById('browseDirs').innerHTML='<div class="es" style="padding:20px;"><p>Start server.py to enable directory browsing.<br>Type the path manually in the input field.</p></div>';
-    document.getElementById('browseDrives').innerHTML='';
-    document.getElementById('browseCurrentPath').textContent=path||'(server offline)';
-    document.getElementById('browseSelected').textContent=path||'';
-    S.browseCurrent=path;
+  var pathEl = document.getElementById('browseCurrentPath');
+  var manEl  = document.getElementById('browseManualInput');
+  if (pathEl) pathEl.textContent = path || '(root)';
+  if (manEl)  manEl.value        = path || '';
+  S.browseCurrent = path || '';
+
+  var drivesEl = document.getElementById('browseDrives');
+  var dirsEl   = document.getElementById('browseDirs');
+
+  if (!S.serverOnline) {
+    if (drivesEl) drivesEl.innerHTML = ['C:\\','D:\\','E:\\'].map(function(d){
+      return '<div class="bdrive" data-browse-path="'+d+'">'+d+'</div>';
+    }).join('');
+    if (dirsEl) dirsEl.innerHTML = '<div class="es" style="padding:20px;"><p>Server offline — type path below or click a drive.</p></div>';
     return;
   }
   try {
-    const r=await fetch(`${API}/api/browse?path=${encodeURIComponent(path)}`);
-    const d=await r.json();
-    S.browseCurrent=d.current;
-    document.getElementById('browseCurrentPath').textContent=d.current;
-    document.getElementById('browseSelected').textContent=d.current;
-    // Drives (Windows)
-    if(d.drives?.length){
-      document.getElementById('browseDrives').innerHTML=d.drives.map(dr=>`<div class="bdrive" onclick="loadBrowse('${dr.path}')">${dr.name}</div>`).join('');
+    var r = await fetch(API + '/api/browse?path=' + encodeURIComponent(path || ''));
+    var d = await r.json();
+    S.browseCurrent = d.current || path || '';
+    if (pathEl) pathEl.textContent = d.current || path;
+    if (manEl)  manEl.value        = d.current || path;
+    if (drivesEl && d.drives && d.drives.length) {
+      drivesEl.innerHTML = d.drives.map(function(dr){
+        return '<div class="bdrive" data-browse-path="'+dr.path+'">'+dr.name+'</div>';
+      }).join('');
     }
-    // Dirs
-    document.getElementById('browseDirs').innerHTML=d.dirs.map(dr=>`
-      <div class="bdir" onclick="loadBrowse('${dr.path.replace(/\\/g,'\\\\')}')" title="${dr.path}">
-        📁 ${dr.name}
-      </div>`).join('')||'<div style="padding:10px;font-size:12px;color:var(--text3);">No subdirectories</div>';
-  } catch(e){
-    document.getElementById('browseDirs').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px;">Error: ${e.message}</div>`;
+    if (dirsEl) {
+      var dHtml = (d.dirs||[]).map(function(dr){
+        return '<div class="bdir-item" data-browse-path="'+dr.path.replace(/"/g,'&quot;')+'">'+
+          '📁 '+dr.name+'<span style="margin-left:auto;font-size:10px;color:var(--text3);">open ›</span></div>';
+      }).join('');
+      dirsEl.innerHTML = dHtml || '<div style="padding:12px;font-size:12px;color:var(--text3);">No subdirectories — click <b>Select This Folder</b>.</div>';
+    }
+  } catch(e) {
+    if (dirsEl) dirsEl.innerHTML = '<div style="color:var(--red);padding:10px;font-size:12px;">Error: '+e.message+'</div>';
   }
 }
 
@@ -2054,13 +2664,21 @@ function browseUp() {
   if(parent)loadBrowse(parent);
 }
 
+function browseUp() {
+  var cur = S.browseCurrent || '';
+  var parent = cur.replace(/[\/\\][^\/\\]+[\/\\]?$/, '');
+  if (parent && parent !== cur) loadBrowse(parent); else loadBrowse('');
+}
+
 function confirmBrowse() {
-  const target=document.getElementById(S.browseTarget);
-  if(target)target.value=S.browseCurrent;
+  var manEl  = document.getElementById('browseManualInput');
+  var chosen = (manEl ? manEl.value : '') || S.browseCurrent || '';
+  var target = document.getElementById(S.browseTarget);
+  if (target) target.value = chosen;
   closeM('mBrowse');
-  // Sync dest fields
-  if(S.browseTarget==='destRoot')document.getElementById('orgDest').value=S.browseCurrent;
-  if(S.browseTarget==='orgDest')document.getElementById('destRoot').value=S.browseCurrent;
+  if (S.browseTarget === 'destRoot') { var od = document.getElementById('orgDest'); if(od) od.value = chosen; }
+  if (S.browseTarget === 'orgDest')  { var dr = document.getElementById('destRoot'); if(dr) dr.value = chosen; }
+  if (S.browseTarget === 'orgDest' || S.browseTarget === 'destRoot') { try{refreshPreview();}catch(e){} }
 }
 
 // ================================================================
@@ -2122,19 +2740,43 @@ function exportStats(){dlTxt('stats.json',JSON.stringify({stats:S.stats,categori
 // ================================================================
 // LOG
 // ================================================================
-function addLog(msg,type='info') {
-  const now=new Date().toLocaleTimeString();
-  S.log=(S.log||[]);
-  S.log.push({time:now,msg,type});
-  const area=document.getElementById('logArea');
-  const div=document.createElement('div');
-  div.className='ll';div.dataset.type=type;div.dataset.msg=msg.toLowerCase();
-  const ic={info:'ℹ',success:'✓',warn:'⚠',error:'✗',ai:'🤖'};
-  div.innerHTML=`<span class="lt">${now}</span><span class="lm ${type}">${ic[type]||''} ${msg}</span>`;
+function addLog(msg, type, detail) {
+  if (!type) type = 'info';
+  var now  = new Date().toLocaleTimeString();
+  S.log    = S.log || [];
+  var entry = {time: now, msg: msg, type: type, detail: detail || ''};
+  S.log.push(entry);
+  var area = document.getElementById('logArea');
+  if (!area) return;
+  var div  = document.createElement('div');
+  div.className    = 'll';
+  div.dataset.type = type;
+  div.dataset.msg  = msg.toLowerCase();
+  var ic   = {info:'ℹ', success:'✓', warn:'⚠', error:'✗', ai:'🤖'};
+  var clickable = (type === 'error' || detail)
+    ? ' style="cursor:pointer;text-decoration:underline dotted;" onclick="showLogDetail(' + (S.log.length - 1) + ')" title="Click for details"'
+    : '';
+  div.innerHTML = '<span class="lt">' + now + '</span>' +
+    '<span class="lm ' + type + '"' + clickable + '>' +
+    (ic[type] || '') + ' ' + msg +
+    (type === 'error' ? ' <span style="font-size:10px;opacity:.7;">[click for details]</span>' : '') +
+    '</span>';
   area.appendChild(div);
-  if(document.getElementById('autoScroll')?.checked)area.scrollTop=area.scrollHeight;
+  if (document.getElementById('autoScroll') && document.getElementById('autoScroll').checked)
+    area.scrollTop = area.scrollHeight;
   refreshLogCounts();
   applyLogF();
+}
+
+function showLogDetail(idx) {
+  var entry = (S.log || [])[idx];
+  if (!entry) return;
+  var detail = entry.detail || entry.msg;
+  var el = document.getElementById('logDetailBody');
+  var timeEl = document.getElementById('logDetailTime');
+  if (el) el.textContent = detail;
+  if (timeEl) timeEl.textContent = entry.time + ' · ' + entry.type.toUpperCase();
+  openM('mLogDetail');
 }
 
 function applyLogF() {
@@ -2181,6 +2823,175 @@ function toast(msg,type='info'){const ic={success:'✓',error:'✗',warn:'⚠',i
 function fmtSz(b){if(!b)return'0 B';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(1)+' MB';return(b/1073741824).toFixed(2)+' GB';}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function dlTxt(name,text){const a=document.createElement('a');a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(text);a.download=name;a.click();}
+
+
+// ================================================================
+// SAVE / LOAD .scan CONFIGURATION FILE
+// ================================================================
+function saveScanFile() {
+  // Prompt user for filename
+  var name = prompt('Save configuration as:', 'my-config');
+  if (name === null) return; // cancelled
+  name = name.trim() || 'my-config';
+  // Remove .scan extension if user typed it — we'll add it
+  name = name.replace(/\.scan$/i, '');
+  var filename = name + '.scan';
+
+  var cfg = {
+    _version:      '1.0',
+    _app:          'AI File Organizer',
+    _saved:        new Date().toISOString(),
+    // Directories
+    watchDirs:     watchDirs,
+    // AI settings
+    ai_provider:   (document.getElementById('aiProvider')||{}).value || 'anthropic',
+    ai_model:      (document.getElementById('aiModel')||{}).value    || '',
+    ollama_url:    (document.getElementById('ollamaUrl')||{}).value  || 'http://localhost:11434',
+    // Parameters
+    temperature:   parseFloat((document.getElementById('tempLbl')||{}).textContent) || 0.3,
+    max_tokens:    parseInt((document.getElementById('maxTok')||{}).value)    || 1000,
+    batch_size:    parseInt((document.getElementById('batchSz')||{}).value)   || 5,
+    timeout:       parseInt((document.getElementById('timeoutSec')||{}).value) || 30,
+    // Organize
+    dest_root:     (document.getElementById('orgDest')||{}).value    || 'C:\\Organized',
+    struct_mode:   (document.getElementById('structMode')||{}).value || 'ai',
+    // System
+    system_prompt: (document.getElementById('sysPrompt')||{}).value  || '',
+    // Data
+    categories:    S.categories,
+    tags:          S.tags,
+    file_types:    S.fileTypes,
+    providers:     S.providers,
+    // Note: API key intentionally omitted for security
+  };
+  var json = JSON.stringify(cfg, null, 2);
+  var a    = document.createElement('a');
+  a.href   = 'data:application/octet-stream;charset=utf-8,' + encodeURIComponent(json);
+  a.download = filename;
+  a.click();
+  addLog('Configuration exported to .scan file', 'success');
+  toast('Config saved as .scan file', 'success');
+}
+
+function loadScanFile() {
+  document.getElementById('scanFileInput').click();
+}
+
+function importScanFile(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var cfg = JSON.parse(e.target.result);
+      applyScanConfig(cfg);
+    } catch(err) {
+      toast('Invalid .scan file: ' + err.message, 'error');
+      addLog('Failed to load .scan file: ' + err.message, 'error', err.stack || err.message);
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function applyScanConfig(cfg) {
+  if (!cfg || cfg._app !== 'AI File Organizer') {
+    toast('Not a valid AI File Organizer .scan file', 'error');
+    return;
+  }
+  // Watch directories
+  if (Array.isArray(cfg.watchDirs) && cfg.watchDirs.length) {
+    watchDirs = cfg.watchDirs;
+    renderWatchDirs();
+  }
+  // AI provider & model
+  if (cfg.ai_provider) {
+    var pEl = document.getElementById('aiProvider');
+    if (pEl) { pEl.value = cfg.ai_provider; providerChanged(); }
+  }
+  if (cfg.ai_model) {
+    setTimeout(function() {
+      var mEl = document.getElementById('aiModel');
+      if (mEl) {
+        var exists = Array.from(mEl.options).some(function(o){ return o.value === cfg.ai_model; });
+        if (!exists) { var opt = document.createElement('option'); opt.value = opt.textContent = cfg.ai_model; mEl.add(opt); }
+        mEl.value = cfg.ai_model;
+      }
+    }, 60);
+  }
+  if (cfg.ollama_url) {
+    var ouEl = document.getElementById('ollamaUrl');
+    var ouEl2 = document.getElementById('aiOllamaUrl');
+    if (ouEl)  ouEl.value  = cfg.ollama_url;
+    if (ouEl2) ouEl2.value = cfg.ollama_url;
+  }
+  // Parameters
+  if (cfg.temperature !== undefined) {
+    var tsEl = document.getElementById('tempSlider');
+    var tlEl = document.getElementById('tempLbl');
+    if (tsEl) tsEl.value = cfg.temperature;
+    if (tlEl) tlEl.textContent = cfg.temperature;
+  }
+  if (cfg.max_tokens)  { var mt = document.getElementById('maxTok');     if(mt) mt.value = cfg.max_tokens;  }
+  if (cfg.batch_size)  { var bs = document.getElementById('batchSz');    if(bs) bs.value = cfg.batch_size;  }
+  if (cfg.timeout)     { var to = document.getElementById('timeoutSec'); if(to) to.value = cfg.timeout;     }
+  // Organize
+  if (cfg.dest_root) {
+    var dEl = document.getElementById('orgDest');
+    var drEl = document.getElementById('destRoot');
+    if (dEl) dEl.value = cfg.dest_root;
+    if (drEl) drEl.value = cfg.dest_root;
+    localStorage.setItem('afo_destdir', cfg.dest_root);
+  }
+  if (cfg.struct_mode) {
+    var smEl = document.getElementById('structMode');
+    if (smEl) { smEl.value = cfg.struct_mode; structChange(); }
+  }
+  // System prompt
+  if (cfg.system_prompt) {
+    var spEl = document.getElementById('sysPrompt');
+    if (spEl) spEl.value = cfg.system_prompt;
+  }
+  // Data
+  if (Array.isArray(cfg.categories) && cfg.categories.length) { S.categories = cfg.categories; renderCatList(); }
+  if (Array.isArray(cfg.tags))       S.tags       = cfg.tags;
+  if (cfg.file_types)                { S.fileTypes = cfg.file_types;   try{renderFileTypes();}catch(e){} }
+  if (Array.isArray(cfg.providers) && cfg.providers.length) { S.providers = cfg.providers; try{renderProviders();}catch(e){} }
+
+  // Save to localStorage
+  localStorage.setItem('afo_watchdirs', JSON.stringify(watchDirs));
+
+  var saved = cfg._saved ? ' (saved ' + new Date(cfg._saved).toLocaleString() + ')' : '';
+  addLog('Configuration loaded from .scan file' + saved, 'success');
+  toast('Configuration loaded — ' + watchDirs.length + ' director' + (watchDirs.length===1?'y':'ies') + ' restored', 'success');
+}
+
+
+// ── Session persistence (survives F5 refresh) ─────────────────
+function persistSession() {
+  try {
+    sessionStorage.setItem('afo_session', JSON.stringify({
+      files:   S.files,
+      queue:   S.queue,
+      results: S.results,
+      stats:   S.stats,
+    }));
+  } catch(e) { /* storage full — ignore */ }
+}
+
+function restoreSession() {
+  try {
+    var raw = sessionStorage.getItem('afo_session');
+    if (!raw) return false;
+    var sess = JSON.parse(raw);
+    if (sess.files  && sess.files.length)   S.files   = sess.files;
+    if (sess.queue  && sess.queue.length)   S.queue   = sess.queue;
+    if (sess.results && sess.results.length) S.results = sess.results;
+    if (sess.stats)                          S.stats   = sess.stats;
+    return sess.files && sess.files.length > 0;
+  } catch(e) { return false; }
+}
+
 </script>
 </body>
 </html>

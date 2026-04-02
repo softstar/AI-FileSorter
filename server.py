@@ -45,8 +45,11 @@ log = logging.getLogger("AIFileOrg")
 # ── Default Config ──────────────────────────────────────────────
 DEFAULT_CFG = {
     "provider": "anthropic",
+    "ai_provider": "anthropic",
     "api_key": "",
     "model": "claude-sonnet-4-20250514",
+    "ai_model": "claude-sonnet-4-20250514",
+    "ollama_api_key": "",
     "ollama_url": "http://localhost:11434",
     "temperature": 0.3,
     "max_tokens": 1000,
@@ -148,7 +151,27 @@ def init_db():
         created_at REAL DEFAULT (strftime('%s','now'))
     );
     """)
-    conn.commit(); conn.close()
+    conn.commit()
+    # ── Migrations: add any columns that may be missing from older DBs ──
+    migrations = [
+        ("analysis",   "tags",          "TEXT DEFAULT '[]'"),
+        ("analysis",   "subcategory",   "TEXT DEFAULT ''"),
+        ("analysis",   "method",        "TEXT DEFAULT 'ai'"),
+        ("analysis",   "provider",      "TEXT DEFAULT ''"),
+        ("files",      "hash",          "TEXT DEFAULT ''"),
+        ("operations", "error_msg",     "TEXT DEFAULT ''"),
+        ("operations", "dry_run",       "INTEGER DEFAULT 1"),
+    ]
+    for table, col, col_def in migrations:
+        existing = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        if col not in existing:
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_def}")
+                conn.commit()
+                log.info(f"Migration: added {table}.{col}")
+            except Exception as e:
+                log.warning(f"Migration skipped {table}.{col}: {e}")
+    conn.close()
     log.info(f"Database ready: {DB_PATH}")
 
 def get_db():
@@ -221,19 +244,17 @@ def classify_heuristic(file_info):
 # ── AI callers ───────────────────────────────────────────────────
 def build_user_msg(fi, preview=""):
     dt = datetime.fromtimestamp(fi["modified"]).strftime("%Y-%m-%d") if fi.get("modified") else ""
-return (
-    f"Filename: {fi.get('name','')}\n"
-    f"Extension: .{fi.get('type','')}\n"
-    f"Size: {fi.get('size',0)} bytes\n"
-    f"Modified: {dt}\n"
-    f"Path: {fi.get('path','')}\n"
-    + (
-        f"\nContent snippet:\n{preview[:1500]}"
-        if preview else ""
-    )
-    + "\n\nReturn JSON only."
-)
-
+    parts = [
+        "Filename: "  + fi.get("name", ""),
+        "Extension: ." + fi.get("type", ""),
+        "Size: "      + str(fi.get("size", 0)) + " bytes",
+        "Modified: "  + dt,
+        "Path: "      + fi.get("path", ""),
+    ]
+    if preview:
+        parts.append("\nContent snippet:\n" + preview[:1500])
+    parts.append("\nReturn JSON only.")
+    return "\n".join(parts)
 
 def parse_ai_json(text):
     clean = re.sub(r"```[a-z]*","",text or "").replace("```","").strip()
@@ -291,24 +312,47 @@ def call_ollama(fi, prov, model):
             any(host.startswith(p) for p in ("192.168.","10.","172."))):
         base = "http://localhost:11434"
         log.warning(f"Ollama URL blocked (not local) — using {base}")
+
+    # Ollama 0.4+ supports optional bearer token auth (OLLAMA_API_KEY env var)
+    # Pass it if configured, otherwise try without auth first
+    ollama_key = prov.get("api_key") or CFG.get("ollama_api_key", "")
+    headers = {"Content-Type": "application/json"}
+    if ollama_key:
+        headers["Authorization"] = f"Bearer {ollama_key}"
+
     preview = read_preview(fi.get("path",""))
     system  = CFG.get("system_prompt", DEFAULT_CFG["system_prompt"])
-    r = http.post(f"{base}/api/generate",
-        headers={"Content-Type":"application/json"},
+    prompt  = system + "\n\n" + build_user_msg(fi, preview)
 
-
-json={
-    "model": model,
-    "prompt": f"{system}\n\n{build_user_msg(fi, preview)}",
-    "stream": False,
-    "format": "json"
-}
-
-{build_user_msg(fi,preview)}",
-              "stream":False,"format":"json"},
-        timeout=CFG.get("timeout",90))
-    r.raise_for_status()
-    return parse_ai_json(r.json()["response"])
+    try:
+        r = http.post(f"{base}/api/generate",
+            headers=headers,
+            json={"model": model, "prompt": prompt, "stream": False, "format": "json"},
+            timeout=CFG.get("timeout", 90))
+        if r.status_code == 401 and not ollama_key:
+            # Ollama requires auth — check OLLAMA_API_KEY environment variable
+            import os
+            env_key = os.environ.get("OLLAMA_API_KEY", "")
+            if env_key:
+                log.info("Retrying Ollama with OLLAMA_API_KEY from environment")
+                headers["Authorization"] = f"Bearer {env_key}"
+                r = http.post(f"{base}/api/generate",
+                    headers=headers,
+                    json={"model": model, "prompt": prompt, "stream": False, "format": "json"},
+                    timeout=CFG.get("timeout", 90))
+            else:
+                raise Exception(
+                    "Ollama returned 401 Unauthorized. "
+                    "Set OLLAMA_API_KEY environment variable or go to Settings → Ollama "
+                    "and enter your Ollama API key.")
+        r.raise_for_status()
+        return parse_ai_json(r.json()["response"])
+    except Exception as e:
+        if "401" in str(e) or "Unauthorized" in str(e):
+            raise Exception(
+                "Ollama 401 Unauthorized — set OLLAMA_API_KEY in your environment, "
+                "or in Settings → AI Model enter the key in the API Key field.")
+        raise
 
 def analyze_file(fi, provider_id, model, system_override=None):
     if system_override:
@@ -369,8 +413,11 @@ def index(): return send_from_directory(FRONTEND, "index.html")
 @app.route("/api/config", methods=["GET"])
 def api_get_config():
     safe = dict(CFG)
-    safe["api_key"] = "***" if CFG.get("api_key") else ""
     safe["db_path"] = str(DB_PATH)
+    # Ensure both old and new key names are present
+    safe.setdefault("ai_provider", safe.get("provider", "anthropic"))
+    safe.setdefault("ai_model",    safe.get("model",    ""))
+    safe.setdefault("ollama_api_key", "")
     return jsonify(safe)
 
 @app.route("/api/config", methods=["POST"])
@@ -378,6 +425,10 @@ def api_set_config():
     global CFG
     for k, v in (request.json or {}).items():
         if v != "***": CFG[k] = v
+    # Keep legacy keys in sync with new frontend key names
+    if "ai_provider" in CFG: CFG["provider"]  = CFG["ai_provider"]
+    if "ai_model"    in CFG: CFG["model"]     = CFG["ai_model"]
+    if "ollama_url"  in CFG: CFG["ollama_url"] = CFG["ollama_url"]
     save_cfg(CFG)
     return jsonify({"status":"saved"})
 
@@ -428,38 +479,63 @@ def api_browse():
 @app.route("/api/scan", methods=["POST"])
 def api_scan():
     import fnmatch
-    data = request.json or {}
-    dirs   = data.get("directories", CFG.get("watch_dirs",[]))
-    excl   = data.get("exclude", CFG.get("exclude",[]))
-    ftypes = data.get("file_types","")
+    data    = request.json or {}
+    dirs    = data.get("directories", CFG.get("watch_dirs", []))
+    excl    = data.get("exclude", CFG.get("exclude", []))
+    ftypes  = data.get("file_types", "")
+    recurse = data.get("recursive", True)   # always recurse by default
     allowed = [x.strip().lower() for x in ftypes.split(",") if x.strip()] if ftypes else []
-    files = []
+    files   = []
+
+    # Define walk OUTSIDE the directory loop to avoid Python late-binding closure bug
+    def walk(p, depth=0):
+        if depth > 20:   # guard against symlink loops
+            return
+        try:
+            for item in sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower())):
+                if item.name.startswith("."):
+                    continue
+                if any(fnmatch.fnmatch(item.name, pat) for pat in excl):
+                    continue
+                if item.is_file():
+                    ext = item.suffix.lstrip(".").lower()
+                    if allowed and ext not in allowed:
+                        continue
+                    try:
+                        st = item.stat()
+                        files.append({
+                            "path":     str(item),
+                            "name":     item.name,
+                            "size":     st.st_size,
+                            "modified": st.st_mtime,
+                            "type":     ext or "unknown",
+                            "icon":     get_icon(ext),
+                        })
+                    except OSError:
+                        pass
+                elif item.is_dir() and recurse:
+                    walk(item, depth + 1)
+        except (PermissionError, OSError):
+            pass
+
     for d in dirs:
         root = Path(d)
-        if not root.exists(): continue
-        def walk(p):
-            try:
-                for item in p.iterdir():
-                    if item.name.startswith("."): continue
-                    if any(fnmatch.fnmatch(item.name,pat) for pat in excl): continue
-                    if item.is_file():
-                        ext = item.suffix.lstrip(".").lower()
-                        if allowed and ext not in allowed: continue
-                        try:
-                            st = item.stat()
-                            files.append({"path":str(item),"name":item.name,
-                                "size":st.st_size,"modified":st.st_mtime,
-                                "type":ext or "unknown","icon":get_icon(ext)})
-                        except OSError: pass
-                    elif item.is_dir(): walk(item)
-            except (PermissionError,OSError): pass
+        if not root.is_dir():
+            log.warning(f"Scan: directory not found or not accessible: {d}")
+            continue
+        log.info(f"Scanning: {root}")
         walk(root)
+
+    log.info(f"Scan complete: {len(files)} files from {len(dirs)} director(ies)")
     conn = get_db()
     for f in files:
-        conn.execute("INSERT OR REPLACE INTO files (path,name,size,modified,file_type) VALUES (?,?,?,?,?)",
-                     (f["path"],f["name"],f["size"],f["modified"],f["type"]))
-    conn.commit(); conn.close()
-    return jsonify({"files":files,"count":len(files)})
+        conn.execute(
+            "INSERT OR REPLACE INTO files (path,name,size,modified,file_type) VALUES (?,?,?,?,?)",
+            (f["path"], f["name"], f["size"], f["modified"], f["type"])
+        )
+    conn.commit()
+    conn.close()
+    return jsonify({"files": files, "count": len(files)})
 
 # Analyze — ALL AI calls happen here server-side
 @app.route("/api/analyze", methods=["POST"])
